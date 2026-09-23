@@ -1,0 +1,24 @@
+{
+  "PRICE_PACKAGE": {
+    "description": "Prezzo Confezione = Prezzo Unitario × UPC, arrotondato a 2 decimali.",
+    "deterministic_fix": "È possibile proporre il ricalcolo del Prezzo Confezione senza modificare Prezzo Unitario o UPC."
+  },
+  "STORAGE_S7_S8": {
+    "description": "S7 NARCOTICI e S8 CANNABINOIDI richiedono sempre STUPEF_Stupefacenti.",
+    "priority": 1
+  },
+  "STORAGE_TEMPERATURE": {
+    "description": "Quando non si applica S7/S8, il Gruppo di Stivaggio viene derivato dalla Temperatura di Stivaggio solo per casistiche deterministiche configurate.",
+    "priority": 2
+  },
+  "AIFA_EXACT": {
+    "description": "Con AIC esatto AIFA può verificare Nome Commerciale, Principio Attivo e ATC7. Valori discordanti non vengono sovrascritti senza conferma.",
+    "confidence": "100% per il match AIC esatto, ma la decisione di sovrascrivere un dato ricevuto resta controllata."
+  },
+  "ARTICLE_KEY": {
+    "description": "Se AIC è presente è la chiave primaria dell'articolo; in assenza di AIC si usa Fornitore + Codice Fornitore."
+  },
+  "DUPLICATES": {
+    "description": "Duplicati perfettamente identici possono essere proposti per eliminazione, ma l'eliminazione è considerata sensibile e richiede conferma esplicita."
+  }
+}

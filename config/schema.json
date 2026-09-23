@@ -1,0 +1,410 @@
+{
+  "app_version": "1.9-demo-r9",
+  "trace_name": "Tracciato Listino Farmaci - Master R3",
+  "sheet_name": "Tracciato",
+  "header_search_rows": 10,
+  "preferred_header_row": 1,
+  "quality": {
+    "semantic_blank_tokens": [
+      "-",
+      "N/A",
+      "N.D.",
+      "N/D",
+      "ND",
+      "NULL",
+      "NONE"
+    ],
+    "warn_placeholder_tokens": [
+      "N/A",
+      "N.D.",
+      "N/D",
+      "ND",
+      "NULL",
+      "NONE"
+    ]
+  },
+  "supplier_control": {
+    "single_supplier_expected": true,
+    "level": "WARNING",
+    "code": "FORNITORI_MULTIPLI"
+  },
+  "columns": [
+    {
+      "name": "Fornitore",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "name": "AIC",
+      "required": false,
+      "type": "identifier",
+      "format": "aic"
+    },
+    {
+      "name": "Codice Fornitore",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "name": "Nome Commerciale",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "name": "Principio Attivo",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "name": "Materiale Pericoloso",
+      "required": true,
+      "type": "list",
+      "list_name": "YN"
+    },
+    {
+      "name": "Stupefacente",
+      "required": true,
+      "type": "list",
+      "list_name": "STUPEFACENTE"
+    },
+    {
+      "name": "ATC7",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "name": "ATC9",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "name": "Fala / Lasa",
+      "required": false,
+      "type": "list",
+      "list_name": "YN"
+    },
+    {
+      "name": "Gruppo di Stivaggio",
+      "required": true,
+      "type": "list",
+      "list_name": "GRUPPO_STIVAGGIO"
+    },
+    {
+      "name": "Temperatura di Stivaggio",
+      "required": true,
+      "type": "list",
+      "list_name": "TEMPERATURA_STIVAGGIO"
+    },
+    {
+      "name": "Prezzo Unitario",
+      "required": true,
+      "type": "number",
+      "min": 0
+    },
+    {
+      "name": "Prezzo Confezione",
+      "required": true,
+      "type": "number",
+      "min": 0
+    },
+    {
+      "name": "UPC",
+      "required": true,
+      "type": "integer",
+      "min": 1
+    },
+    {
+      "name": "Minimo Movimentabile",
+      "required": true,
+      "type": "integer",
+      "min": 1
+    },
+    {
+      "name": "IVA",
+      "required": true,
+      "type": "percentage_list",
+      "list_name": "IVA"
+    },
+    {
+      "name": "Note",
+      "required": false,
+      "type": "string"
+    }
+  ],
+  "lists": {
+    "YN": [
+      "Y",
+      "N"
+    ],
+    "IVA": [
+      0,
+      0.04,
+      0.1,
+      0.22
+    ],
+    "GRUPPO_STIVAGGIO": [
+      "FREEZER_Freezer",
+      "FRIGO_Frigo",
+      "STD_Standard",
+      "STUPEF_Stupefacenti"
+    ],
+    "TEMPERATURA_STIVAGGIO": [
+      "inferiore a + 30°C",
+      "inferiore a + 25°C",
+      "inferiore a + 20°C",
+      "inferiore a + 15°C",
+      "inferiore a - 18°C",
+      "inferiore a - 65°C",
+      "da + 2 a 8°C",
+      "da + 15 a 30°C",
+      "da + 15 a 25°C",
+      "da + 0 a 4°C",
+      "da -90 a -60°C",
+      "a -20°C",
+      "da -50 a -15°C",
+      "da -25 a -15°C",
+      "da -25 a -10°C",
+      "da -20 a -10°C",
+      "a 4°C",
+      "da + 4 a 8°C",
+      "da + 4 a 20°C",
+      "da + 15 a 22°C",
+      "da + 15 a 24°C",
+      "da + 18 a 25°C",
+      "da + 20 a 25°C",
+      "da + 23 a 27°C",
+      "da + 20 a 30°C",
+      "inferiore a + 40°C",
+      "inferiore a + 50°C",
+      "superiore a -5°C",
+      "superiore a 0°C",
+      "superiore a 5°C",
+      "superiore a 10°C"
+    ],
+    "STUPEFACENTE": [
+      "AGENTI ANABOLIZZANTI",
+      "ORMONI",
+      "P1 BETA-BLOCCANTI",
+      "P2 BETA-BLOCCANTI",
+      "S1 AGENTI ANABOLIZZANTI",
+      "S2 ORMONI PEPT,FAT.CRES.E CORR",
+      "S3 BETA2 AGONISTI",
+      "S4 MODULATORI ORM.E METABOLICI",
+      "S5 DIURETICI E AGENTI MASCHER",
+      "S6 STIMOLANTI",
+      "S7 NARCOTICI",
+      "S8 CANNABINOIDI",
+      "S9 GLUCOCORTICOSTEROIDI",
+      "STIMOLANTI",
+      "No"
+    ]
+  },
+  "conditional_required": [
+    {
+      "type": "at_least_one",
+      "fields": [
+        "AIC",
+        "Codice Fornitore"
+      ],
+      "blank_tokens": [
+        "-",
+        "N/A",
+        "N.D.",
+        "N/D",
+        "ND",
+        "NULL",
+        "NONE"
+      ],
+      "level": "BLOCCANTE",
+      "code": "IDENTIFICATIVO_ARTICOLO_MANCANTE",
+      "message": "Deve essere valorizzato almeno uno tra AIC e Codice Fornitore. Se l'articolo non dispone di AIC, indicare il codice interno del fornitore per identificare l'articolo."
+    }
+  ],
+  "duplicate_checks": [
+    {
+      "type": "aic_if_present",
+      "field": "AIC",
+      "blank_tokens": [
+        "-",
+        "N/A",
+        "N.D.",
+        "N/D",
+        "ND",
+        "NULL",
+        "NONE"
+      ],
+      "level": "BLOCCANTE",
+      "code": "AIC_DUPLICATO",
+      "message": "Il codice AIC deve essere univoco all'interno del file."
+    },
+    {
+      "type": "supplier_code_when_no_aic",
+      "supplier_field": "Fornitore",
+      "aic_field": "AIC",
+      "supplier_code_field": "Codice Fornitore",
+      "blank_tokens": [
+        "-",
+        "N/A",
+        "N.D.",
+        "N/D",
+        "ND",
+        "NULL",
+        "NONE"
+      ],
+      "level": "BLOCCANTE",
+      "code": "CODICE_FORNITORE_DUPLICATO",
+      "message": "Per articoli senza AIC, la coppia Fornitore + Codice Fornitore deve essere univoca nel file."
+    }
+  ],
+  "coherence_checks": [
+    {
+      "type": "product_equals",
+      "target": "Prezzo Confezione",
+      "factors": [
+        "Prezzo Unitario",
+        "UPC"
+      ],
+      "decimals": 2,
+      "level": "BLOCCANTE",
+      "code": "PREZZO_CONFEZIONE_NON_COHERENTE",
+      "message": "Il Prezzo Confezione deve essere uguale al Prezzo Unitario moltiplicato per UPC, arrotondato a 2 decimali."
+    }
+  ],
+  "aifa": {
+    "enabled": true,
+    "data_dir": "data/aifa",
+    "main_url": "https://drive.aifa.gov.it/farmaci/confezioni_fornitura.csv",
+    "pa_url": "https://drive.aifa.gov.it/farmaci/PA_confezioni.csv",
+    "atc_url": "https://drive.aifa.gov.it/farmaci/atc.csv",
+    "upc_check": {
+      "enabled": true,
+      "level": "WARNING",
+      "code": "UPC_DIVERSO_DA_AIFA",
+      "message": "L'UPC ricevuto non coincide con le Unità Posologiche indicate nell'Anagrafica AIFA per lo stesso AIC."
+    },
+    "db_schema_version": "2",
+    "auto_fill_fields": [
+      "Nome Commerciale",
+      "Principio Attivo",
+      "ATC7"
+    ]
+  },
+  "storage_group_rules": {
+    "enabled": true,
+    "level": "BLOCCANTE",
+    "code": "GRUPPO_STIVAGGIO_NON_COHERENTE",
+    "stupefacente_overrides": {
+      "S7 NARCOTICI": "STUPEF_Stupefacenti",
+      "S8 CANNABINOIDI": "STUPEF_Stupefacenti"
+    },
+    "temperature_exact": {
+      "FREEZER_Freezer": [
+        "inferiore a - 18°C",
+        "inferiore a - 65°C",
+        "da -90 a -60°C",
+        "a -20°C",
+        "da -50 a -15°C",
+        "da -25 a -15°C",
+        "da -25 a -10°C",
+        "da -20 a -10°C"
+      ],
+      "FRIGO_Frigo": [
+        "inferiore a + 15°C",
+        "da + 2 a 8°C",
+        "da + 0 a 4°C",
+        "a 4°C",
+        "da + 4 a 8°C"
+      ],
+      "STD_Standard": [
+        "inferiore a + 20°C",
+        "inferiore a + 25°C",
+        "inferiore a + 30°C",
+        "inferiore a + 40°C",
+        "inferiore a + 50°C",
+        "da + 15 a 30°C",
+        "da + 15 a 25°C",
+        "da + 15 a 22°C",
+        "da + 15 a 24°C",
+        "da + 18 a 25°C",
+        "da + 20 a 25°C",
+        "da + 23 a 27°C",
+        "da + 20 a 30°C"
+      ]
+    },
+    "temperature_keywords": {
+      "FREEZER_Freezer": [
+        "congelatore",
+        "freezer",
+        "circa -20",
+        "intorno ai -20",
+        "a -20",
+        "-18°c",
+        "-20°c"
+      ],
+      "FRIGO_Frigo": [
+        "frigorifero",
+        "in frigo",
+        "refrigerato",
+        "refrigerazione",
+        "al fresco",
+        "2-8",
+        "2 a 8",
+        "0-4",
+        "0 a 4",
+        "4-8",
+        "4 a 8",
+        "inferiore a 15",
+        "sotto 15"
+      ],
+      "STD_Standard": [
+        "15-25",
+        "15 a 25",
+        "temperatura ambiente",
+        "al riparo dalla luce",
+        "al riparo da luce",
+        "proteggere dalla luce",
+        "riparo dal calore",
+        "riparo da calore",
+        "non richiede alcuna condizione particolare"
+      ]
+    },
+    "unclassified_temperature_values": [
+      "da + 4 a 20°C",
+      "superiore a -5°C",
+      "superiore a 0°C",
+      "superiore a 5°C",
+      "superiore a 10°C"
+    ]
+  },
+  "catalogue": {
+    "db_path": "data/listino.db",
+    "archive_dir": "archive",
+    "backup_dir": "backup"
+  },
+  "derived_fields": [
+    {
+      "name": "Azienda titolare AIFA",
+      "source": "AIFA",
+      "persist_to_catalogue": false,
+      "export_to_validated_trace": false
+    }
+  ],
+  "template_reference": {
+    "name": "Template TracciatoTest_2 - Copia.xlsx",
+    "bundled_name": "templates/Template_Tracciato_Master_R3.xlsx",
+    "actual_fields": 18,
+    "official_header_row": 2,
+    "operational_header_row_allowed": 1,
+    "notes": "Il template master usa riga 1 per le linee guida e riga 2 per le 18 intestazioni. Sono accettati anche file operativi con intestazioni direttamente in riga 1."
+  },
+  "accepted_header_rows": [
+    1,
+    2
+  ],
+  "assistant": {
+    "engine": "ollama",
+    "ollama_url": "http://127.0.0.1:11434",
+    "timeout_seconds": 60,
+    "fallback_to_rules": true
+  }
+}

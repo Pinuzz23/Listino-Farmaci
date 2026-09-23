@@ -1,0 +1,20 @@
+{
+  "Fornitore": "Fornitore commerciale del prodotto. Non coincide necessariamente con l'Azienda titolare AIFA.",
+  "AIC": "Codice di autorizzazione all'immissione in commercio. Quando presente viene normalizzato a 9 cifre ed è la chiave regolatoria primaria.",
+  "Codice Fornitore": "Codice interno del fornitore. In assenza di AIC, insieme al Fornitore identifica l'articolo.",
+  "Nome Commerciale": "Denominazione commerciale. Può essere verificata o completata tramite AIFA con match AIC esatto.",
+  "Principio Attivo": "Principio attivo del medicinale. Può essere verificato o completato tramite AIFA con match AIC esatto.",
+  "Materiale Pericoloso": "Indicatore Y/N relativo alla classificazione interna del materiale pericoloso.",
+  "Stupefacente": "Classificazione regolatoria/doping prevista dall'elenco master; S7 e S8 impongono il gruppo STUPEF.",
+  "ATC7": "Codice ATC al livello disponibile nel tracciato. Può essere verificato o completato da AIFA.",
+  "ATC9": "Eventuale classificazione ATC più dettagliata disponibile nel processo aziendale.",
+  "Fala / Lasa": "Indicatore Y/N per farmaci Look-Alike / Sound-Alike.",
+  "Gruppo di Stivaggio": "Gruppo logistico derivato dalle regole di temperatura e, con priorità, da S7/S8.",
+  "Temperatura di Stivaggio": "Condizione di conservazione codificata secondo l'elenco master.",
+  "Prezzo Unitario": "Prezzo riferito alla singola unità commerciale usata nel tracciato.",
+  "Prezzo Confezione": "Prezzo della confezione; deve essere uguale a Prezzo Unitario × UPC, arrotondato a 2 decimali.",
+  "UPC": "Numero di unità commerciali usato per il calcolo del Prezzo Confezione. Non va confuso automaticamente con le unità posologiche AIFA.",
+  "Minimo Movimentabile": "Numero minimo di confezioni movimentabili secondo la regola commerciale/logistica del fornitore.",
+  "IVA": "Aliquota IVA ammessa dal template master.",
+  "Note": "Campo libero per informazioni accessorie del tracciato."
+}
