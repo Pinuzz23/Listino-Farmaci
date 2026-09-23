@@ -21,8 +21,9 @@ try:
 
     st.success(f"✅ Connessione PostgreSQL riuscita — database: {db_name}")
 
-except Exception:
+except Exception as e:
     st.error("❌ Connessione PostgreSQL non riuscita")
+    st.code(f"{type(e).__name__}: {str(e)}")
 
 st.set_page_config(
     page_title="Listino Farmaci",
