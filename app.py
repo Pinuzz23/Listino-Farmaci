@@ -1,5 +1,10 @@
 import streamlit as st
 
+if "database" in st.secrets and "url" in st.secrets["database"]:
+    st.success("✅ Configurazione database trovata nei Secrets")
+else:
+    st.error("❌ Configurazione database non trovata")
+
 st.set_page_config(
     page_title="Listino Farmaci",
     page_icon="💊",
