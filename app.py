@@ -4,6 +4,25 @@ if "database" in st.secrets and "url" in st.secrets["database"]:
     st.success("✅ Configurazione database trovata nei Secrets")
 else:
     st.error("❌ Configurazione database non trovata")
+    
+import psycopg2
+
+try:
+    conn = psycopg2.connect(
+        st.secrets["database"]["url"],
+        connect_timeout=10
+    )
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT current_database();")
+        db_name = cur.fetchone()[0]
+
+    conn.close()
+
+    st.success(f"✅ Connessione PostgreSQL riuscita — database: {db_name}")
+
+except Exception:
+    st.error("❌ Connessione PostgreSQL non riuscita")
 
 st.set_page_config(
     page_title="Listino Farmaci",
