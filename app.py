@@ -1,6 +1,11 @@
 import streamlit as st
 
-from modules.auth import current_user, render_login, sign_out
+from modules.auth import (
+    current_user,
+    render_force_password_change,
+    render_login,
+    sign_out,
+)
 from modules.db_backend import backend_name
 
 
@@ -19,6 +24,11 @@ if not user:
     st.stop()
 
 
+if user.get("must_change_password"):
+    render_force_password_change()
+    st.stop()
+
+
 permissions = set(user.get("permissions") or [])
 
 
@@ -26,9 +36,6 @@ def allowed(permission_id: str) -> bool:
     return permission_id in permissions
 
 
-# ------------------------------------------------------------
-# Navigazione dinamica in base ai permessi del ruolo
-# ------------------------------------------------------------
 operativita = []
 
 if allowed("view_dashboard"):
@@ -99,15 +106,26 @@ pages = {
     "Operatività": operativita,
 }
 
+if allowed("manage_users"):
+    pages["Amministrazione"] = [
+        st.Page(
+            "pages/utenti.py",
+            title="Gestione utenti",
+            icon="👥",
+        )
+    ]
 
-# ------------------------------------------------------------
-# Informazioni utente / logout
-# ------------------------------------------------------------
+
 with st.sidebar:
     st.divider()
     st.caption("Utente")
     st.markdown(f"**{user.get('display_name', '')}**")
     st.caption(user.get("email", ""))
+
+    organization = user.get("organization_name")
+    if organization:
+        st.caption(organization)
+
     st.caption(f"Ruolo: {user.get('role_id', '-')}")
 
     if st.button(
@@ -118,9 +136,6 @@ with st.sidebar:
         st.rerun()
 
 
-# ------------------------------------------------------------
-# Indicatore backend
-# ------------------------------------------------------------
 db_backend = backend_name()
 
 if db_backend == "PostgreSQL":
