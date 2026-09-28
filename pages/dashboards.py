@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+from modules.auth import require_permission
 from modules.dashboard_builder import (
     CATEGORICAL_FIELDS,
     GLOBAL_FILTER_FIELDS,
@@ -34,6 +35,9 @@ from modules.dashboard_builder import (
 from modules.schema_loader import load_schema
 from modules.ui import hero, inject_styles
 
+
+# Solo ADMIN e BUYER possiedono manage_dashboards nella matrice attuale.
+require_permission("manage_dashboards")
 
 inject_styles()
 schema = load_schema()

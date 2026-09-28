@@ -1,8 +1,11 @@
 import streamlit as st
 
+from modules.auth import has_permission, require_permission
 from modules.catalog_db import init_db, publication_rows_dataframe, publications_dataframe
 from modules.schema_loader import load_schema
 from modules.ui import hero, inject_styles
+
+require_permission("view_publications")
 
 inject_styles()
 schema = load_schema()
@@ -34,12 +37,14 @@ st.write(f"**Fornitore:** {selected['Fornitore'] or '-'}")
 st.write(f"**File sorgente:** {selected['File']}")
 st.write(f"**Data:** {selected['Data']}")
 
-st.subheader("Righe del batch")
-rows = publication_rows_dataframe(db_path, batch)
-if rows.empty:
-    st.caption("Nessuna riga trovata.")
-else:
-    st.dataframe(rows, hide_index=True, use_container_width=True)
+if has_permission("view_history"):
+    st.subheader("Righe del batch")
+    rows = publication_rows_dataframe(db_path, batch)
+
+    if rows.empty:
+        st.caption("Nessuna riga trovata.")
+    else:
+        st.dataframe(rows, hide_index=True, use_container_width=True)
 
 st.info(
     "La demo mantiene lo storico delle pubblicazioni e dei prezzi. "

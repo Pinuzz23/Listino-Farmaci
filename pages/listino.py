@@ -3,6 +3,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+from modules.auth import audit, has_permission, require_permission
 from modules.aifa_documents import AifaDocumentError, fetch_and_store_rcp
 from modules.catalog_db import (
     catalogue_dataframe,
@@ -38,6 +39,10 @@ def _format_retrieved_at(value) -> str:
 
 
 def _render_rcp_section(row) -> None:
+    # Customer Care non possiede view_rcp: la sezione non viene mostrata.
+    if not has_permission("view_rcp"):
+        return
+
     st.markdown("#### Documentazione ufficiale AIFA")
 
     aic = _clean_text(row.get("AIC"))
@@ -48,8 +53,6 @@ def _render_rcp_section(row) -> None:
         )
         return
 
-    # In locale il progetto può continuare a usare SQLite senza Secrets Supabase.
-    # La gestione documentale persistente viene attivata nell'ambiente cloud/PostgreSQL.
     if not use_postgres():
         st.info(
             "La documentazione RCP persistente è disponibile nell'ambiente "
@@ -69,86 +72,101 @@ def _render_rcp_section(row) -> None:
         return
 
     if document:
-        status_col, open_col, download_col, refresh_col = st.columns(
-            [2.3, 1.2, 1.35, 1.45]
+        st.success("✅ RCP archiviato")
+        st.caption(
+            "Fonte: AIFA · "
+            f"acquisito {_format_retrieved_at(document.get('retrieved_at'))}"
         )
 
-        with status_col:
-            st.success("✅ RCP archiviato")
-            st.caption(
-                "Fonte: AIFA · "
-                f"acquisito {_format_retrieved_at(document.get('retrieved_at'))}"
-            )
+        actions = []
 
-        try:
-            open_url = create_signed_url(
-                document["storage_path"],
-                expires_in=900,
-                download=False,
-            )
-            download_url = create_signed_url(
-                document["storage_path"],
-                expires_in=900,
-                download=True,
-            )
+        if has_permission("view_rcp"):
+            actions.append("open")
+        if has_permission("download_rcp"):
+            actions.append("download")
+        if has_permission("update_rcp"):
+            actions.append("update")
 
-            with open_col:
-                st.link_button(
-                    "📄 Apri RCP",
-                    open_url,
-                    use_container_width=True,
-                )
+        action_cols = st.columns(len(actions)) if actions else []
 
-            with download_col:
-                st.link_button(
-                    "⬇️ Scarica PDF",
-                    download_url,
-                    use_container_width=True,
-                )
+        for action, col in zip(actions, action_cols):
+            with col:
+                if action == "open":
+                    try:
+                        open_url = create_signed_url(
+                            document["storage_path"],
+                            expires_in=900,
+                            download=False,
+                        )
+                        st.link_button(
+                            "📄 Apri RCP",
+                            open_url,
+                            use_container_width=True,
+                        )
+                    except Exception as exc:
+                        st.caption("Apertura non disponibile")
+                        with st.expander("Dettaglio tecnico link"):
+                            st.code(f"{type(exc).__name__}: {exc}")
 
-        except Exception as exc:
-            with open_col:
-                st.caption("Link non disponibile")
-            with download_col:
-                st.caption("Download non disponibile")
-            st.warning(
-                "Il documento è archiviato, ma non è stato possibile "
-                "generare il link temporaneo."
-            )
-            with st.expander("Dettaglio tecnico link"):
-                st.code(f"{type(exc).__name__}: {exc}")
+                elif action == "download":
+                    try:
+                        download_url = create_signed_url(
+                            document["storage_path"],
+                            expires_in=900,
+                            download=True,
+                        )
+                        st.link_button(
+                            "⬇️ Scarica PDF",
+                            download_url,
+                            use_container_width=True,
+                        )
+                    except Exception as exc:
+                        st.caption("Download non disponibile")
+                        with st.expander("Dettaglio tecnico download"):
+                            st.code(f"{type(exc).__name__}: {exc}")
 
-        with refresh_col:
-            refresh_key = (
-                f"refresh_rcp_"
-                f"{row.get('product_id', 'p')}_"
-                f"{row.get('offer_id', 'o')}"
-            )
-            if st.button(
-                "🔄 Aggiorna da AIFA",
-                key=refresh_key,
-                use_container_width=True,
-                help=(
-                    "Recupera nuovamente l'RCP da AIFA. Se il PDF è cambiato, "
-                    "la versione precedente resta nello storico."
-                ),
-            ):
-                try:
-                    with st.spinner(
-                        "Controllo RCP AIFA e aggiornamento archivio..."
-                    ):
-                        fetch_and_store_rcp(aic)
-                except AifaDocumentError as exc:
-                    st.error(f"RCP AIFA non recuperato: {exc}")
-                except Exception as exc:
-                    st.error(
-                        "Errore durante l'aggiornamento del documento RCP."
+                elif action == "update":
+                    refresh_key = (
+                        f"refresh_rcp_"
+                        f"{row.get('product_id', 'p')}_"
+                        f"{row.get('offer_id', 'o')}"
                     )
-                    with st.expander("Dettaglio tecnico aggiornamento"):
-                        st.code(f"{type(exc).__name__}: {exc}")
-                else:
-                    st.success("RCP aggiornato correttamente.")
-                    st.rerun()
+
+                    if st.button(
+                        "🔄 Aggiorna da AIFA",
+                        key=refresh_key,
+                        use_container_width=True,
+                        help=(
+                            "Recupera nuovamente l'RCP da AIFA. Se il PDF è "
+                            "cambiato, la versione precedente resta nello storico."
+                        ),
+                    ):
+                        require_permission("update_rcp")
+
+                        try:
+                            with st.spinner(
+                                "Controllo RCP AIFA e aggiornamento archivio..."
+                            ):
+                                fetch_and_store_rcp(aic)
+                        except AifaDocumentError as exc:
+                            st.error(f"RCP AIFA non recuperato: {exc}")
+                        except Exception as exc:
+                            st.error(
+                                "Errore durante l'aggiornamento del documento RCP."
+                            )
+                            with st.expander(
+                                "Dettaglio tecnico aggiornamento"
+                            ):
+                                st.code(f"{type(exc).__name__}: {exc}")
+                        else:
+                            audit(
+                                "RCP_UPDATE",
+                                entity_type="product",
+                                entity_id=aic,
+                                details={"document_type": "RCP"},
+                            )
+                            st.success("RCP aggiornato correttamente.")
+                            st.rerun()
 
         with st.expander("Dettagli documento"):
             st.write(f"**AIC6:** {document.get('aic6') or '-'}")
@@ -167,6 +185,9 @@ def _render_rcp_section(row) -> None:
         "Nessuna scheda tecnica RCP è ancora archiviata per questo prodotto."
     )
 
+    if not has_permission("fetch_rcp"):
+        return
+
     fetch_key = (
         f"fetch_rcp_"
         f"{row.get('product_id', 'p')}_"
@@ -182,6 +203,8 @@ def _render_rcp_section(row) -> None:
             "Supabase Storage."
         ),
     ):
+        require_permission("fetch_rcp")
+
         try:
             with st.spinner(
                 "Recupero RCP da AIFA e archiviazione su Supabase..."
@@ -196,9 +219,16 @@ def _render_rcp_section(row) -> None:
             with st.expander("Dettaglio tecnico salvataggio"):
                 st.code(f"{type(exc).__name__}: {exc}")
         else:
+            audit(
+                "RCP_FETCH",
+                entity_type="product",
+                entity_id=aic,
+                details={"document_type": "RCP"},
+            )
             st.success("✅ RCP recuperato e archiviato correttamente.")
             st.rerun()
 
+require_permission("view_catalogue")
 
 inject_styles()
 schema = load_schema()
@@ -324,14 +354,15 @@ selection = st.dataframe(
     },
 )
 
-export_bytes = export_catalogue_excel(db_path, filtered)
+if has_permission("export_catalogue"):
+    export_bytes = export_catalogue_excel(db_path, filtered)
 
-st.download_button(
-    "⬇️ Esporta listino filtrato",
-    data=export_bytes,
-    file_name=f"Listino_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+    st.download_button(
+        "⬇️ Esporta listino filtrato",
+        data=export_bytes,
+        file_name=f"Listino_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 selected_rows = (
     selection.selection.rows
@@ -402,31 +433,32 @@ if selected_rows:
     st.divider()
     _render_rcp_section(row)
 
-    st.divider()
-    st.markdown("#### Storico prezzi")
+    if has_permission("view_history"):
+        st.divider()
+        st.markdown("#### Storico prezzi")
 
-    history = price_history_dataframe(
-        db_path,
-        int(row["offer_id"]),
-    )
-
-    if history.empty:
-        st.caption("Nessuno storico disponibile.")
-    else:
-        st.dataframe(
-            history,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "Prezzo Unitario": st.column_config.NumberColumn(
-                    format="€ %.4f"
-                ),
-                "Prezzo Confezione": st.column_config.NumberColumn(
-                    format="€ %.2f"
-                ),
-                "IVA": st.column_config.NumberColumn(format="%.2f"),
-            },
+        history = price_history_dataframe(
+            db_path,
+            int(row["offer_id"]),
         )
+
+        if history.empty:
+            st.caption("Nessuno storico disponibile.")
+        else:
+            st.dataframe(
+                history,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Prezzo Unitario": st.column_config.NumberColumn(
+                        format="€ %.4f"
+                    ),
+                    "Prezzo Confezione": st.column_config.NumberColumn(
+                        format="€ %.2f"
+                    ),
+                    "IVA": st.column_config.NumberColumn(format="%.2f"),
+                },
+            )
 
 else:
     st.caption(

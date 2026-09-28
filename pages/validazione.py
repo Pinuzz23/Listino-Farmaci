@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from modules.auth import audit, has_permission, require_permission
 from modules.aifa import get_aifa_status, update_aifa_database
 from modules.editor import (
     META_DELETE,
@@ -30,6 +31,10 @@ from modules.validation_agent import append_audit_log, run_validation_copilot
 from modules.change_set import change_set_to_audit_rows, simulate_change_set
 from modules.validation_tools import build_validation_registry
 
+
+require_permission("validate_files")
+can_edit_validation = has_permission("edit_validation")
+can_publish_catalogue = has_permission("publish_catalogue")
 
 inject_styles()
 
@@ -644,7 +649,7 @@ with tab_copilot:
                 "✅ Applica selezionate",
                 type="primary",
                 use_container_width=True,
-                disabled=(not selected_ids or not sensitive_confirmed),
+                disabled=(not selected_ids or not sensitive_confirmed or not can_edit_validation),
                 key=f"apply_cs_{current_file_id}_{pending_change_set.get('change_set_id')}",
             )
         with bdiscard:
@@ -658,7 +663,7 @@ with tab_copilot:
             undo_clicked = st.button(
                 "↩️ Annulla ultimo AI",
                 use_container_width=True,
-                disabled=not undo_stack,
+                disabled=(not undo_stack or not can_edit_validation),
                 key=f"undo_ai_{current_file_id}_{pending_change_set.get('change_set_id')}",
             )
 
@@ -689,6 +694,7 @@ with tab_copilot:
             s4.metric("Esito", "VALIDATO" if after.get("is_valid") else "NON VALIDATO")
 
         if apply_ai_clicked:
+            require_permission("edit_validation")
             apply_result = validation_registry.execute(
                 "validation_apply_change_set",
                 validation_context,
@@ -754,6 +760,7 @@ with tab_copilot:
             st.rerun()
 
         if undo_clicked:
+            require_permission("edit_validation")
             undone = _undo_last_ai_change()
             if undone:
                 append_audit_log(
@@ -765,7 +772,12 @@ with tab_copilot:
 
     elif st.session_state.get("v10_undo_stack"):
         st.divider()
-        if st.button("↩️ Annulla ultima modifica AI", key=f"undo_ai_no_pending_{current_file_id}"):
+        if st.button(
+            "↩️ Annulla ultima modifica AI",
+            key=f"undo_ai_no_pending_{current_file_id}",
+            disabled=not can_edit_validation,
+        ):
+            require_permission("edit_validation")
             undone = _undo_last_ai_change()
             if undone:
                 st.session_state["v10_flash"] = f"Ripristinato lo stato precedente al Change Set {undone}."
@@ -887,7 +899,7 @@ with tab_edit:
         edited_df = st.data_editor(
             before_editor_df,
             column_config=_build_editor_config(schema),
-            disabled=[META_ROW, META_STATUS],
+            disabled=[META_ROW, META_STATUS] if can_edit_validation else list(before_editor_df.columns),
             hide_index=True,
             use_container_width=True,
             height=min(760, max(260, 72 + 36 * len(before_editor_df))),
@@ -901,12 +913,13 @@ with tab_edit:
             "✅ Applica modifiche e rivalida",
             type="primary",
             use_container_width=True,
-            disabled=before_editor_df.empty,
+            disabled=(before_editor_df.empty or not can_edit_validation),
         )
     with action_mid:
         reset_clicked = st.button(
             "↩️ Ripristina file iniziale",
             use_container_width=True,
+            disabled=not can_edit_validation,
         )
     with action_right:
         if result["is_valid"]:
@@ -915,6 +928,7 @@ with tab_edit:
             st.warning("Correzioni ancora necessarie")
 
     if apply_clicked:
+        require_permission("edit_validation")
         changes = diff_editor_frames(before_editor_df, edited_df, schema)
         if not changes:
             st.session_state["v10_flash"] = "Nessuna modifica rilevata nella griglia."
@@ -951,6 +965,7 @@ with tab_edit:
         st.rerun()
 
     if reset_clicked:
+        require_permission("edit_validation")
         reset_bundle = process_workbook(
             original_data,
             schema,
@@ -1090,8 +1105,9 @@ with tab_export:
                 "📤 Pubblica a listino",
                 type="primary",
                 use_container_width=True,
-                disabled=not confirmed,
+                disabled=(not confirmed or not can_publish_catalogue),
             ):
+                require_permission("publish_catalogue")
                 try:
                     published = publish_to_catalogue(
                         records=enriched_data.records,
@@ -1107,6 +1123,15 @@ with tab_export:
                     st.success(
                         f"Pubblicazione completata: **{published['batch_id']}** · "
                         f"{published['row_count']} righe caricate nel listino."
+                    )
+                    audit(
+                        "PUBLICATION",
+                        entity_type="publication",
+                        entity_id=published.get("batch_id"),
+                        details={
+                            "source_name": uploaded_file.name,
+                            "row_count": published.get("row_count"),
+                        },
                     )
                     if published.get("archive_error"):
                         st.warning(
