@@ -240,6 +240,18 @@ def validate_workbook(workbook_data, schema, initial_issues=None):
                         f"Il valore di '{name}' è inferiore al minimo ammesso.",
                         f"Minimo: {column['min']}",
                     )
+
+                if "min_exclusive" in column and number <= Decimal(str(column["min_exclusive"])):
+                    add_issue(
+                        issues,
+                        excel_row,
+                        name,
+                        value,
+                        "VALORE_NON_POSITIVO",
+                        LEVEL_BLOCK,
+                        f"Il campo '{name}' deve essere maggiore del limite minimo esclusivo.",
+                        f"Valore richiesto: > {column['min_exclusive']}",
+                    )
                 continue
 
             if kind == "percentage_list":
