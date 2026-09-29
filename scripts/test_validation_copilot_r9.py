@@ -21,6 +21,7 @@ def build_workbook(schema):
         "Codice Fornitore": "TEST-001",
         "Nome Commerciale": "FARMACO TEST",
         "Principio Attivo": "PRINCIPIO TEST",
+        "Forma Farmaceutica": "Compressa",
         "Materiale Pericoloso": "N",
         "Stupefacente": "No",
         "ATC7": "",
@@ -34,6 +35,9 @@ def build_workbook(schema):
         "Minimo Movimentabile": 1,
         "IVA": 0.10,
         "Note": "",
+        "X": 12.5,
+        "Y": 8.0,
+        "Z": 4.2,
     }
     return WorkbookData(
         filename="test_r9.xlsx",
@@ -65,7 +69,6 @@ def main():
         "aifa_candidates": bundle["aifa_candidates"],
     }
 
-    # Il planner fallback deve generare, non applicare.
     response = run_validation_copilot(
         "Correggi automaticamente tutto quello che puoi in modo deterministico",
         registry,
@@ -85,7 +88,6 @@ def main():
     assert simulation["after"]["blocking"] == 0, simulation["after"]
     assert simulation["after"]["is_valid"] is True
 
-    # I tool WRITE devono essere bloccati senza conferma.
     blocked = False
     try:
         registry.execute(
