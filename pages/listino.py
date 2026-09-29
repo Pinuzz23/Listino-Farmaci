@@ -39,7 +39,6 @@ def _format_retrieved_at(value) -> str:
 
 
 def _render_rcp_section(row) -> None:
-    # Customer Care non possiede view_rcp: la sezione non viene mostrata.
     if not has_permission("view_rcp"):
         return
 
@@ -79,7 +78,6 @@ def _render_rcp_section(row) -> None:
         )
 
         actions = []
-
         if has_permission("view_rcp"):
             actions.append("open")
         if has_permission("download_rcp"):
@@ -142,7 +140,6 @@ def _render_rcp_section(row) -> None:
                         ),
                     ):
                         require_permission("update_rcp")
-
                         try:
                             with st.spinner(
                                 "Controllo RCP AIFA e aggiornamento archivio..."
@@ -154,9 +151,7 @@ def _render_rcp_section(row) -> None:
                             st.error(
                                 "Errore durante l'aggiornamento del documento RCP."
                             )
-                            with st.expander(
-                                "Dettaglio tecnico aggiornamento"
-                            ):
+                            with st.expander("Dettaglio tecnico aggiornamento"):
                                 st.code(f"{type(exc).__name__}: {exc}")
                         else:
                             audit(
@@ -178,7 +173,6 @@ def _render_rcp_section(row) -> None:
                 f"{int(document.get('file_size') or 0):,} byte"
             )
             st.write(f"**SHA-256:** `{document.get('sha256') or '-'}`")
-
         return
 
     st.caption(
@@ -204,7 +198,6 @@ def _render_rcp_section(row) -> None:
         ),
     ):
         require_permission("fetch_rcp")
-
         try:
             with st.spinner(
                 "Recupero RCP da AIFA e archiviazione su Supabase..."
@@ -227,6 +220,7 @@ def _render_rcp_section(row) -> None:
             )
             st.success("✅ RCP recuperato e archiviato correttamente.")
             st.rerun()
+
 
 require_permission("view_catalogue")
 
@@ -267,7 +261,7 @@ with f1:
     search = st.text_input(
         "Cerca",
         placeholder=(
-            "AIC, nome commerciale, principio attivo, "
+            "AIC, nome commerciale, principio attivo, forma farmaceutica, "
             "ATC, codice fornitore..."
         ),
     )
@@ -294,10 +288,8 @@ filtered = df.copy()
 
 if supplier != "Tutti":
     filtered = filtered[filtered["Fornitore"] == supplier]
-
 if group != "Tutti":
     filtered = filtered[filtered["Gruppo di Stivaggio"] == group]
-
 if narcotic != "Tutti":
     filtered = filtered[filtered["Stupefacente"] == narcotic]
 
@@ -307,16 +299,14 @@ if search.strip():
         "AIC",
         "Nome Commerciale",
         "Principio Attivo",
+        "Forma Farmaceutica",
         "ATC7",
         "ATC9",
         "Codice Fornitore",
         "Fornitore",
     ]
     mask = filtered[searchable].fillna("").astype(str).apply(
-        lambda row: row.str.casefold().str.contains(
-            needle,
-            regex=False,
-        ).any(),
+        lambda row: row.str.casefold().str.contains(needle, regex=False).any(),
         axis=1,
     )
     filtered = filtered[mask]
@@ -327,6 +317,7 @@ show_cols = [
     "AIC",
     "Nome Commerciale",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "ATC7",
     "Fornitore",
     "Prezzo Confezione",
@@ -348,15 +339,12 @@ selection = st.dataframe(
     on_select="rerun",
     selection_mode="single-row",
     column_config={
-        "Prezzo Confezione": st.column_config.NumberColumn(
-            format="€ %.2f"
-        ),
+        "Prezzo Confezione": st.column_config.NumberColumn(format="€ %.2f"),
     },
 )
 
 if has_permission("export_catalogue"):
     export_bytes = export_catalogue_excel(db_path, filtered)
-
     st.download_button(
         "⬇️ Esporta listino filtrato",
         data=export_bytes,
@@ -364,20 +352,14 @@ if has_permission("export_catalogue"):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-selected_rows = (
-    selection.selection.rows
-    if selection and selection.selection
-    else []
-)
+selected_rows = selection.selection.rows if selection and selection.selection else []
 
 if selected_rows:
     selected_index = filtered.index[selected_rows[0]]
     row = filtered.loc[selected_index]
 
     st.divider()
-    st.subheader(
-        _clean_text(row.get("Nome Commerciale")) or "Scheda prodotto"
-    )
+    st.subheader(_clean_text(row.get("Nome Commerciale")) or "Scheda prodotto")
 
     a, b, c = st.columns(3)
 
@@ -388,14 +370,16 @@ if selected_rows:
             f"**Principio Attivo:** "
             f"{_clean_text(row.get('Principio Attivo')) or '-'}"
         )
+        st.write(
+            f"**Forma Farmaceutica:** "
+            f"{_clean_text(row.get('Forma Farmaceutica')) or '-'}"
+        )
         st.write(f"**ATC7:** {_clean_text(row.get('ATC7')) or '-'}")
         st.write(f"**ATC9:** {_clean_text(row.get('ATC9')) or '-'}")
 
     with b:
         st.markdown("#### Commerciale")
-        st.write(
-            f"**Fornitore:** {_clean_text(row.get('Fornitore')) or '-'}"
-        )
+        st.write(f"**Fornitore:** {_clean_text(row.get('Fornitore')) or '-'}")
         st.write(
             f"**Codice Fornitore:** "
             f"{_clean_text(row.get('Codice Fornitore')) or '-'}"
@@ -429,6 +413,12 @@ if selected_rows:
             f"**Stupefacente:** "
             f"{_clean_text(row.get('Stupefacente')) or '-'}"
         )
+        st.write(
+            "**Dimensioni confezione (cm):** "
+            f"X {_clean_text(row.get('X')) or '-'} × "
+            f"Y {_clean_text(row.get('Y')) or '-'} × "
+            f"Z {_clean_text(row.get('Z')) or '-'}"
+        )
 
     st.divider()
     _render_rcp_section(row)
@@ -436,12 +426,7 @@ if selected_rows:
     if has_permission("view_history"):
         st.divider()
         st.markdown("#### Storico prezzi")
-
-        history = price_history_dataframe(
-            db_path,
-            int(row["offer_id"]),
-        )
-
+        history = price_history_dataframe(db_path, int(row["offer_id"]))
         if history.empty:
             st.caption("Nessuno storico disponibile.")
         else:
@@ -450,16 +435,11 @@ if selected_rows:
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "Prezzo Unitario": st.column_config.NumberColumn(
-                        format="€ %.4f"
-                    ),
-                    "Prezzo Confezione": st.column_config.NumberColumn(
-                        format="€ %.2f"
-                    ),
+                    "Prezzo Unitario": st.column_config.NumberColumn(format="€ %.4f"),
+                    "Prezzo Confezione": st.column_config.NumberColumn(format="€ %.2f"),
                     "IVA": st.column_config.NumberColumn(format="%.2f"),
                 },
             )
-
 else:
     st.caption(
         "Seleziona una riga del listino per aprire la scheda prodotto, "
