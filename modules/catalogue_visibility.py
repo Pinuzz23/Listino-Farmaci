@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import pandas as pd
@@ -33,6 +34,9 @@ STATUS_ICONS = {
 }
 
 STATUS_COLUMN = "Stato Catalogo"
+
+_SCHEMA_READY: set[str] = set()
+_SCHEMA_LOCK = Lock()
 
 
 class CatalogueVisibilityError(RuntimeError):
@@ -143,94 +147,109 @@ def _ensure_permission_postgres(cur) -> None:
     )
 
 
+def _schema_key(db_path: str | Path | None = None) -> str:
+    if use_postgres():
+        return "postgres"
+    return f"sqlite:{Path(db_path or 'data/listino.db').resolve()}"
+
+
 def ensure_catalogue_visibility_schema(
     db_path: str | Path | None = None,
 ) -> None:
     """Migrazione R11 non distruttiva per stato catalogo e permesso Admin."""
-    conn = _connect(db_path)
-    try:
-        cur = conn.cursor()
+    key = _schema_key(db_path)
+    if key in _SCHEMA_READY:
+        return
 
-        if use_postgres():
-            cur.execute(
-                "ALTER TABLE public.products "
-                "ADD COLUMN IF NOT EXISTS catalogue_status TEXT NOT NULL DEFAULT 'VISIBLE'"
-            )
-            cur.execute(
-                "ALTER TABLE public.products "
-                "ADD COLUMN IF NOT EXISTS status_reason TEXT"
-            )
-            cur.execute(
-                "ALTER TABLE public.products "
-                "ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ"
-            )
-            cur.execute(
-                "ALTER TABLE public.products "
-                "ADD COLUMN IF NOT EXISTS status_updated_by UUID"
-            )
-            cur.execute(
-                """
-                UPDATE public.products
-                SET catalogue_status = 'VISIBLE'
-                WHERE catalogue_status IS NULL
-                   OR TRIM(catalogue_status) = ''
-                """
-            )
-            cur.execute(
-                """
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1
-                        FROM pg_constraint c
-                        JOIN pg_class t ON t.oid = c.conrelid
-                        JOIN pg_namespace n ON n.oid = t.relnamespace
-                        WHERE n.nspname = 'public'
-                          AND t.relname = 'products'
-                          AND c.conname = 'products_catalogue_status_check'
-                    ) THEN
-                        ALTER TABLE public.products
-                        ADD CONSTRAINT products_catalogue_status_check
-                        CHECK (catalogue_status IN ('VISIBLE', 'HIDDEN', 'ARCHIVED'));
-                    END IF;
-                END $$;
-                """
-            )
-            _ensure_permission_postgres(cur)
-        else:
-            if not _table_exists_sqlite(conn, "products"):
-                return
+    with _SCHEMA_LOCK:
+        if key in _SCHEMA_READY:
+            return
 
-            columns = {
-                row[1]
-                for row in cur.execute("PRAGMA table_info(products)").fetchall()
-            }
-            migrations = {
-                "catalogue_status": "TEXT NOT NULL DEFAULT 'VISIBLE'",
-                "status_reason": "TEXT",
-                "status_updated_at": "TEXT",
-                "status_updated_by": "TEXT",
-            }
-            for name, sql_type in migrations.items():
-                if name not in columns:
-                    cur.execute(
-                        f"ALTER TABLE products ADD COLUMN {name} {sql_type}"
-                    )
-            cur.execute(
-                """
-                UPDATE products
-                SET catalogue_status = 'VISIBLE'
-                WHERE catalogue_status IS NULL
-                   OR TRIM(catalogue_status) = ''
-                """
-            )
+        conn = _connect(db_path)
+        try:
+            cur = conn.cursor()
 
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+            if use_postgres():
+                cur.execute(
+                    "ALTER TABLE public.products "
+                    "ADD COLUMN IF NOT EXISTS catalogue_status TEXT NOT NULL DEFAULT 'VISIBLE'"
+                )
+                cur.execute(
+                    "ALTER TABLE public.products "
+                    "ADD COLUMN IF NOT EXISTS status_reason TEXT"
+                )
+                cur.execute(
+                    "ALTER TABLE public.products "
+                    "ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ"
+                )
+                cur.execute(
+                    "ALTER TABLE public.products "
+                    "ADD COLUMN IF NOT EXISTS status_updated_by UUID"
+                )
+                cur.execute(
+                    """
+                    UPDATE public.products
+                    SET catalogue_status = 'VISIBLE'
+                    WHERE catalogue_status IS NULL
+                       OR TRIM(catalogue_status) = ''
+                    """
+                )
+                cur.execute(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM pg_constraint c
+                            JOIN pg_class t ON t.oid = c.conrelid
+                            JOIN pg_namespace n ON n.oid = t.relnamespace
+                            WHERE n.nspname = 'public'
+                              AND t.relname = 'products'
+                              AND c.conname = 'products_catalogue_status_check'
+                        ) THEN
+                            ALTER TABLE public.products
+                            ADD CONSTRAINT products_catalogue_status_check
+                            CHECK (catalogue_status IN ('VISIBLE', 'HIDDEN', 'ARCHIVED'));
+                        END IF;
+                    END $$;
+                    """
+                )
+                _ensure_permission_postgres(cur)
+            else:
+                if not _table_exists_sqlite(conn, "products"):
+                    return
+
+                columns = {
+                    row[1]
+                    for row in cur.execute("PRAGMA table_info(products)").fetchall()
+                }
+                migrations = {
+                    "catalogue_status": "TEXT NOT NULL DEFAULT 'VISIBLE'",
+                    "status_reason": "TEXT",
+                    "status_updated_at": "TEXT",
+                    "status_updated_by": "TEXT",
+                }
+                for name, sql_type in migrations.items():
+                    if name not in columns:
+                        cur.execute(
+                            f"ALTER TABLE products ADD COLUMN {name} {sql_type}"
+                        )
+                cur.execute(
+                    """
+                    UPDATE products
+                    SET catalogue_status = 'VISIBLE'
+                    WHERE catalogue_status IS NULL
+                       OR TRIM(catalogue_status) = ''
+                    """
+                )
+
+            conn.commit()
+            _SCHEMA_READY.add(key)
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
 
 def init_db(db_path: str | Path | None = None) -> None:
