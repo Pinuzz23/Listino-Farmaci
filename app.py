@@ -6,7 +6,7 @@ from modules.auth import (
     render_login,
     sign_out,
 )
-from modules.catalogue_visibility import ensure_catalogue_visibility_schema
+from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.db_backend import backend_name, use_postgres
 
 
@@ -21,9 +21,15 @@ st.set_page_config(
 # R11: crea in modo non distruttivo lo stato catalogo e il permesso Admin.
 # Deve avvenire prima di current_user(), così il profilo ADMIN riceve subito
 # il nuovo permesso manage_catalogue senza interventi manuali su Supabase.
+@st.cache_resource(show_spinner=False)
+def _bootstrap_catalogue_visibility() -> bool:
+    init_catalogue_visibility_db()
+    return True
+
+
 if use_postgres():
     try:
-        ensure_catalogue_visibility_schema()
+        _bootstrap_catalogue_visibility()
     except Exception:
         st.error(
             "Non è stato possibile inizializzare la gestione visibilità del catalogo. "
