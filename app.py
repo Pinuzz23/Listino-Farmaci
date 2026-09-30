@@ -6,7 +6,8 @@ from modules.auth import (
     render_login,
     sign_out,
 )
-from modules.db_backend import backend_name
+from modules.catalogue_visibility import ensure_catalogue_visibility_schema
+from modules.db_backend import backend_name, use_postgres
 
 
 st.set_page_config(
@@ -15,6 +16,20 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
+# R11: crea in modo non distruttivo lo stato catalogo e il permesso Admin.
+# Deve avvenire prima di current_user(), così il profilo ADMIN riceve subito
+# il nuovo permesso manage_catalogue senza interventi manuali su Supabase.
+if use_postgres():
+    try:
+        ensure_catalogue_visibility_schema()
+    except Exception:
+        st.error(
+            "Non è stato possibile inizializzare la gestione visibilità del catalogo. "
+            "Riprova tra poco o verifica la connessione al database."
+        )
+        st.stop()
 
 
 user = current_user()
@@ -106,14 +121,28 @@ pages = {
     "Operatività": operativita,
 }
 
+amministrazione = []
+
 if allowed("manage_users"):
-    pages["Amministrazione"] = [
+    amministrazione.append(
         st.Page(
             "pages/utenti.py",
             title="Gestione utenti",
             icon="👥",
         )
-    ]
+    )
+
+if allowed("manage_catalogue"):
+    amministrazione.append(
+        st.Page(
+            "pages/gestione_catalogo.py",
+            title="Gestione catalogo",
+            icon="📦",
+        )
+    )
+
+if amministrazione:
+    pages["Amministrazione"] = amministrazione
 
 
 with st.sidebar:
