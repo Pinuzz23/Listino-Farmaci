@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from modules.auth import require_permission
+from modules.auth import has_permission, require_permission
 from modules.catalogue_visibility import (
     STATUS_ARCHIVED,
     STATUS_HIDDEN,
@@ -12,8 +12,13 @@ from modules.catalogue_visibility import (
     STATUS_VISIBLE,
     CatalogueVisibilityError,
     admin_catalogue_dataframe,
+)
+from modules.order_management import (
+    OrderManagementError,
     init_db,
+    product_edit_snapshot,
     set_product_status,
+    update_product_and_offer,
 )
 from modules.schema_loader import load_schema
 from modules.ui import hero, inject_styles
@@ -28,13 +33,13 @@ init_db(db_path)
 
 hero(
     "Gestione catalogo",
-    "Visibilità prodotti per il listino cliente — nascondi, archivia e ripristina senza perdere lo storico",
+    "Visibilità, archiviazione e correzione controllata degli articoli del listino",
 )
 
 st.info(
     "**Nascondi** esclude il prodotto solo dalla visualizzazione cliente. "
     "**Archivia / elimina dal listino** lo rimuove dal listino operativo senza cancellare "
-    "dati, pubblicazioni, storico prezzi o documenti collegati."
+    "storico e documenti. Le modifiche Order Management generano un delta ERP."
 )
 
 
@@ -144,9 +149,7 @@ selected_rows = (
 )
 
 if not selected_rows:
-    st.caption(
-        "Seleziona un prodotto per modificarne la visibilità nel catalogo."
-    )
+    st.caption("Seleziona un prodotto per gestirlo.")
     st.stop()
 
 row = filtered.iloc[selected_rows[0]]
@@ -179,11 +182,12 @@ if row.get("Aggiornato il"):
         f"Ultimo aggiornamento stato: {row.get('Aggiornato il')} · {updated_by}"
     )
 
-st.markdown("#### Modifica stato")
+
+st.markdown("#### Visibilità / archiviazione")
 reason = st.text_area(
-    "Motivazione",
+    "Motivazione cambio stato",
     max_chars=1000,
-    placeholder="Indica il motivo della modifica. La motivazione verrà registrata nell'audit.",
+    placeholder="Indica il motivo. Verrà registrato nell'audit.",
     key=f"catalogue_reason_{product_id}_{current_status}",
 )
 
@@ -196,7 +200,7 @@ def apply_status(target_status: str) -> None:
             reason,
             db_path,
         )
-    except CatalogueVisibilityError as exc:
+    except (CatalogueVisibilityError, OrderManagementError) as exc:
         st.error(str(exc))
     except Exception as exc:
         st.error("Non è stato possibile aggiornare lo stato del prodotto.")
@@ -230,7 +234,7 @@ if current_status == STATUS_VISIBLE:
             "🗃 Elimina dal listino (archivia)",
             use_container_width=True,
             disabled=not confirm_archive,
-            help="Non cancella fisicamente il prodotto: lo rimuove dal listino operativo preservando lo storico.",
+            help="Non cancella fisicamente il prodotto: lo rimuove dal listino operativo e genera DISABLE nel delta ERP.",
         ):
             apply_status(STATUS_ARCHIVED)
 
@@ -263,6 +267,7 @@ elif current_status == STATUS_ARCHIVED:
             "♻️ Ripristina come visibile",
             type="primary",
             use_container_width=True,
+            help="Il ripristino genera REACTIVATE nel delta ERP.",
         ):
             apply_status(STATUS_VISIBLE)
 
@@ -270,6 +275,219 @@ elif current_status == STATUS_ARCHIVED:
         if st.button(
             "👁 Ripristina come nascosto",
             use_container_width=True,
-            help="Ripristina il prodotto per gli utenti interni mantenendolo invisibile ai Clienti.",
+            help="Ripristina l'articolo internamente e genera REACTIVATE nel delta ERP, mantenendolo invisibile al Cliente.",
         ):
             apply_status(STATUS_HIDDEN)
+
+
+if not has_permission("edit_catalogue"):
+    st.stop()
+
+st.divider()
+st.markdown("#### Modifica articolo / offerta")
+st.caption(
+    "AIC, Fornitore e Codice Fornitore restano identificativi protetti. "
+    "Le correzioni vengono registrate nell'audit e producono un evento UPDATE per ERP."
+)
+
+try:
+    snapshot = product_edit_snapshot(product_id, db_path)
+except Exception as exc:
+    st.error("Non è stato possibile caricare i dati modificabili dell'articolo.")
+    with st.expander("Dettaglio tecnico"):
+        st.code(f"{type(exc).__name__}: {exc}")
+    st.stop()
+
+product = snapshot["product"]
+offers = snapshot["offers"]
+if offers.empty:
+    st.info("Nessuna offerta attiva associata a questo prodotto.")
+    st.stop()
+
+
+def clean(value, default=""):
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    return default if value is None else value
+
+
+def option_index(options, value):
+    normalized = "" if value is None else str(value)
+    return options.index(normalized) if normalized in options else 0
+
+
+offer_labels = {
+    f"{clean(item['Fornitore'], '-')} · {clean(item['Codice Fornitore'], '-')} · offerta #{int(item['offer_id'])}": int(item["offer_id"])
+    for _, item in offers.iterrows()
+}
+selected_offer_label = st.selectbox(
+    "Offerta da modificare",
+    list(offer_labels.keys()),
+    key=f"edit_offer_{product_id}",
+)
+selected_offer_id = offer_labels[selected_offer_label]
+offer = offers[offers["offer_id"] == selected_offer_id].iloc[0].to_dict()
+
+lists = schema.get("lists", {})
+yn_values = [str(value) for value in lists.get("YN", ["Y", "N"])]
+stup_values = [str(value) for value in lists.get("STUPEFACENTE", [])]
+group_values = [str(value) for value in lists.get("GRUPPO_STIVAGGIO", [])]
+temp_values = [str(value) for value in lists.get("TEMPERATURA_STIVAGGIO", [])]
+fala_values = [""] + yn_values
+iva_values = [0.0, 0.04, 0.10, 0.22]
+
+with st.form(f"edit_catalogue_{product_id}_{selected_offer_id}"):
+    st.write(
+        f"**Identificativi protetti:** AIC {clean(product.get('AIC'), '-')} · "
+        f"Fornitore {clean(offer.get('Fornitore'), '-')} · "
+        f"Codice {clean(offer.get('Codice Fornitore'), '-')}"
+    )
+
+    p1, p2 = st.columns(2)
+    with p1:
+        nome = st.text_input(
+            "Nome Commerciale",
+            value=str(clean(product.get("Nome Commerciale"))),
+        )
+        principio = st.text_input(
+            "Principio Attivo",
+            value=str(clean(product.get("Principio Attivo"))),
+        )
+        forma = st.text_input(
+            "Forma Farmaceutica",
+            value=str(clean(product.get("Forma Farmaceutica"))),
+        )
+        materiale = st.selectbox(
+            "Materiale Pericoloso",
+            yn_values,
+            index=option_index(yn_values, clean(product.get("Materiale Pericoloso"))),
+        )
+        stupefacente = st.selectbox(
+            "Stupefacente",
+            stup_values,
+            index=option_index(stup_values, clean(product.get("Stupefacente"))),
+        )
+        fala = st.selectbox(
+            "Fala / Lasa",
+            fala_values,
+            index=option_index(fala_values, clean(product.get("Fala / Lasa"))),
+        )
+        atc7 = st.text_input("ATC7", value=str(clean(product.get("ATC7"))))
+        atc9 = st.text_input("ATC9", value=str(clean(product.get("ATC9"))))
+
+    with p2:
+        gruppo = st.selectbox(
+            "Gruppo di Stivaggio",
+            group_values,
+            index=option_index(group_values, clean(product.get("Gruppo di Stivaggio"))),
+        )
+        temperatura = st.selectbox(
+            "Temperatura di Stivaggio",
+            temp_values,
+            index=option_index(temp_values, clean(product.get("Temperatura di Stivaggio"))),
+        )
+        upc = st.number_input(
+            "UPC",
+            min_value=1,
+            step=1,
+            value=int(clean(product.get("UPC"), 1) or 1),
+        )
+        x = st.number_input(
+            "X (cm)", min_value=0.01, value=float(clean(product.get("X"), 0.01) or 0.01), step=0.01
+        )
+        y = st.number_input(
+            "Y (cm)", min_value=0.01, value=float(clean(product.get("Y"), 0.01) or 0.01), step=0.01
+        )
+        z = st.number_input(
+            "Z (cm)", min_value=0.01, value=float(clean(product.get("Z"), 0.01) or 0.01), step=0.01
+        )
+        note = st.text_area("Note", value=str(clean(product.get("Note"))))
+
+    st.markdown("##### Dati offerta")
+    o1, o2, o3, o4 = st.columns(4)
+    with o1:
+        prezzo_unitario = st.number_input(
+            "Prezzo Unitario",
+            min_value=0.0,
+            value=float(clean(offer.get("Prezzo Unitario"), 0.0) or 0.0),
+            step=0.01,
+            format="%.4f",
+        )
+    with o2:
+        prezzo_confezione = st.number_input(
+            "Prezzo Confezione",
+            min_value=0.0,
+            value=float(clean(offer.get("Prezzo Confezione"), 0.0) or 0.0),
+            step=0.01,
+            format="%.2f",
+        )
+    with o3:
+        minimo = st.number_input(
+            "Minimo Movimentabile",
+            min_value=1,
+            step=1,
+            value=int(clean(offer.get("Minimo Movimentabile"), 1) or 1),
+        )
+    with o4:
+        current_iva = float(clean(offer.get("IVA"), 0.0) or 0.0)
+        iva = st.selectbox(
+            "IVA",
+            iva_values,
+            index=min(range(len(iva_values)), key=lambda idx: abs(iva_values[idx] - current_iva)),
+            format_func=lambda value: f"{value * 100:.0f}%",
+        )
+
+    edit_reason = st.text_area(
+        "Motivazione modifica",
+        max_chars=1000,
+        placeholder="Motivo della correzione dati / offerta.",
+    )
+
+    submitted = st.form_submit_button(
+        "💾 Salva modifica e genera delta ERP",
+        type="primary",
+        use_container_width=True,
+    )
+
+if submitted:
+    values = {
+        "Nome Commerciale": nome,
+        "Principio Attivo": principio,
+        "Forma Farmaceutica": forma,
+        "Materiale Pericoloso": materiale,
+        "Stupefacente": stupefacente,
+        "ATC7": atc7,
+        "ATC9": atc9,
+        "Fala / Lasa": fala,
+        "Gruppo di Stivaggio": gruppo,
+        "Temperatura di Stivaggio": temperatura,
+        "UPC": upc,
+        "Note": note,
+        "X": x,
+        "Y": y,
+        "Z": z,
+        "Prezzo Unitario": prezzo_unitario,
+        "Prezzo Confezione": prezzo_confezione,
+        "Minimo Movimentabile": minimo,
+        "IVA": iva,
+    }
+    try:
+        update_product_and_offer(
+            product_id,
+            selected_offer_id,
+            values,
+            edit_reason,
+            db_path,
+        )
+    except OrderManagementError as exc:
+        st.error(str(exc))
+    except Exception as exc:
+        st.error("Non è stato possibile salvare la modifica.")
+        with st.expander("Dettaglio tecnico"):
+            st.code(f"{type(exc).__name__}: {exc}")
+    else:
+        st.success("Modifica salvata e delta ERP UPDATE generato.")
+        st.rerun()
