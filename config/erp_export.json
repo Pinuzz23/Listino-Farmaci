@@ -1,0 +1,31 @@
+{
+  "separator": ";",
+  "encoding": "utf-8-sig",
+  "decimal": ",",
+  "include_metadata": true,
+  "metadata_columns": ["Operazione", "Origine", "Batch sorgente"],
+  "columns": [
+    "Fornitore",
+    "AIC",
+    "Codice Fornitore",
+    "Nome Commerciale",
+    "Principio Attivo",
+    "Forma Farmaceutica",
+    "Materiale Pericoloso",
+    "Stupefacente",
+    "ATC7",
+    "ATC9",
+    "Fala / Lasa",
+    "Gruppo di Stivaggio",
+    "Temperatura di Stivaggio",
+    "Prezzo Unitario",
+    "Prezzo Confezione",
+    "UPC",
+    "Minimo Movimentabile",
+    "IVA",
+    "Note",
+    "X",
+    "Y",
+    "Z"
+  ]
+}
