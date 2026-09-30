@@ -1,6 +1,6 @@
 import streamlit as st
 
-from modules.access_requests import ALLOWED_REQUESTED_ROLES, ROLE_LABELS
+from modules.access_requests import ROLE_LABELS
 from modules.auth import (
     current_user,
     render_force_password_change,
@@ -20,10 +20,9 @@ st.set_page_config(
 )
 
 
-# R12: rende il nuovo ruolo disponibile anche nei flussi di richiesta/gestione accessi
-# senza duplicare la logica di modules.access_requests.
+# R12: etichetta UI del nuovo ruolo. Il ruolo resta interno e viene assegnato
+# dall'Admin; non viene esposto tra i profili richiedibili dalla schermata pubblica.
 ROLE_LABELS["ORDER_MANAGEMENT"] = "Order Management"
-ALLOWED_REQUESTED_ROLES.add("ORDER_MANAGEMENT")
 
 
 # R11: crea in modo non distruttivo lo stato catalogo e il permesso Admin.
@@ -103,6 +102,7 @@ if allowed("view_catalogue"):
             "pages/listino.py",
             title="Listino prodotti",
             icon="📦",
+            default=not allowed("view_dashboard"),
         )
     )
 
