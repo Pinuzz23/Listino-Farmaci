@@ -3,15 +3,16 @@ from __future__ import annotations
 from modules.db_backend import use_postgres
 
 if use_postgres():
+    # R13: patcha i percorsi PostgreSQL/Master22/R12 prima degli import operativi.
+    import modules.catalog_db_postgres_r13  # noqa: F401
     from modules.catalog_db_postgres import *  # noqa: F401,F403
 else:
     from modules.catalog_db_sqlite import *  # noqa: F401,F403
 
-# R10: preview del delta di pubblicazione sul tracciato definitivo a 22 campi.
+# R10/R13: preview del delta di pubblicazione sul tracciato definitivo a 22 campi.
 from modules.master22_catalog import preview_publication  # noqa: E402,F401
 
-# R12: estende R10/R11 con ruolo Order Management e coda incrementale ERP.
-# La pubblicazione Buyer genera eventi ERP; lettura/export restano role-aware.
+# R12/R13: ruolo Order Management, coda ERP e pubblicazione Buyer ottimizzata.
 from modules.order_management import (  # noqa: E402,F401
     catalogue_dataframe,
     export_catalogue_excel,
