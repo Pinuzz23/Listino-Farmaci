@@ -11,10 +11,10 @@ import modules.order_management as order_management
 
 logger = logging.getLogger(__name__)
 
-# R13 was deployed from this commit window. Reconciliation is deliberately
-# limited to publications created from R13 onward, so historical pre-R12/R13
-# catalogue loads are never backfilled into the ERP queue by accident.
-R13_DELTA_GUARD_FROM = "2026-10-01T13:21:21"
+# The ERP delta queue was introduced with R12. Reconciliation is deliberately
+# limited to publications created from that release onward, so older catalogue
+# loads are never backfilled into the ERP queue by accident.
+R12_DELTA_GUARD_FROM = "2026-09-30T13:29:51"
 _ACTIONS = {
     "NUOVO PRODOTTO": "INSERT",
     "NUOVA OFFERTA": "INSERT",
@@ -230,39 +230,35 @@ def _recent_missing_batches(
     db_path: str | Path | None = None,
     limit: int = 20,
 ) -> list[str]:
-    """Return recent R13+ publications with actionable rows not fully queued."""
+    """Return R12+ publications having at least one actionable row not queued."""
     order_management.init_db(db_path)
     conn = order_management._connect(db_path)
     try:
         cur = conn.cursor()
         ph = "%s" if use_postgres() else "?"
+        concat_event_key = (
+            "('BUYER|' || pr.batch_id || '|' || pr.offer_key)"
+            if use_postgres()
+            else "('BUYER|' || pr.batch_id || '|' || pr.offer_key)"
+        )
         cur.execute(
             f"""
-            WITH expected AS (
-                SELECT batch_id, COUNT(DISTINCT offer_key) AS expected_count
-                FROM publication_rows
-                WHERE UPPER(TRIM(action)) IN (
-                    'NUOVO PRODOTTO', 'NUOVA OFFERTA', 'PREZZO MODIFICATO',
-                    'DATI MODIFICATI', 'PREZZO + ANAGRAFICA'
-                )
-                GROUP BY batch_id
-            ), actual AS (
-                SELECT source_batch_id AS batch_id, COUNT(DISTINCT event_key) AS actual_count
-                FROM erp_delta_events
-                WHERE source_type = 'BUYER'
-                GROUP BY source_batch_id
-            )
-            SELECT p.batch_id
+            SELECT DISTINCT p.batch_id
             FROM publications p
-            JOIN expected e ON e.batch_id = p.batch_id
-            LEFT JOIN actual a ON a.batch_id = p.batch_id
+            JOIN publication_rows pr ON pr.batch_id = p.batch_id
+            LEFT JOIN erp_delta_events e
+              ON e.event_key = {concat_event_key}
             WHERE p.status = 'PUBBLICATO'
               AND p.published_at >= {ph}
-              AND e.expected_count > COALESCE(a.actual_count, 0)
-            ORDER BY p.published_at DESC
+              AND UPPER(TRIM(pr.action)) IN (
+                    'NUOVO PRODOTTO', 'NUOVA OFFERTA', 'PREZZO MODIFICATO',
+                    'DATI MODIFICATI', 'PREZZO + ANAGRAFICA'
+              )
+              AND e.event_id IS NULL
+            ORDER BY p.batch_id DESC
             LIMIT {max(1, int(limit))}
             """,
-            (R13_DELTA_GUARD_FROM,),
+            (R12_DELTA_GUARD_FROM,),
         )
         return [str(row[0]) for row in cur.fetchall()]
     finally:
@@ -307,7 +303,7 @@ def queue_buyer_delta_guarded(records: list[dict], result: dict, db_path=None) -
 
 
 def delta_dataframe_guarded(db_path: str | Path | None = None):
-    """Self-heal missing R13+ Buyer deltas before rendering Export ERP."""
+    """Self-heal missing R12+ Buyer deltas before rendering Export ERP."""
     if use_postgres():
         try:
             for batch_id in _recent_missing_batches(db_path):
