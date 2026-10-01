@@ -7,8 +7,14 @@ from modules.auth import (
     render_login,
     sign_out,
 )
-from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.db_backend import backend_name, use_postgres
+
+# R13: applica le ottimizzazioni PostgreSQL prima che R11/R12 importino
+# i riferimenti alle funzioni di pubblicazione Master22.
+if use_postgres():
+    import modules.catalog_db_postgres_r13  # noqa: F401
+
+from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.order_management import init_db as init_order_management_db
 
 
