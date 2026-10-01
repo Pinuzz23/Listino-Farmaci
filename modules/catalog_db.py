@@ -5,6 +5,9 @@ from modules.db_backend import use_postgres
 if use_postgres():
     # R13: patcha i percorsi PostgreSQL/Master22/R12 prima degli import operativi.
     import modules.catalog_db_postgres_r13  # noqa: F401
+    # R13.1: verifica e ricostruisce in modo idempotente eventuali delta Buyer
+    # mancanti per le pubblicazioni successive all'introduzione della R12.
+    import modules.erp_delta_guard  # noqa: F401
     from modules.catalog_db_postgres import *  # noqa: F401,F403
 else:
     from modules.catalog_db_sqlite import *  # noqa: F401,F403

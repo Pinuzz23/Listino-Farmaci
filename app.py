@@ -13,6 +13,9 @@ from modules.db_backend import backend_name, use_postgres
 # i riferimenti alle funzioni di pubblicazione Master22.
 if use_postgres():
     import modules.catalog_db_postgres_r13  # noqa: F401
+    # R13.1: abilita il controllo di consistenza della coda ERP Buyer e il
+    # recupero idempotente dei delta mancanti dalle pubblicazioni R12 in poi.
+    import modules.erp_delta_guard  # noqa: F401
 
 from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.order_management import init_db as init_order_management_db
