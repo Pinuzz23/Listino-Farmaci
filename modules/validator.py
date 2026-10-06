@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
@@ -33,6 +34,28 @@ def normalize_text(value: Any) -> str:
     if value is None:
         return ""
     return " ".join(str(value).replace("\u00a0", " ").strip().split())
+
+
+def parse_date(value: Any) -> date | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    # Accetta il formato operativo italiano e ISO, oltre ai datetime Excel serializzati.
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(text).date()
+    except ValueError:
+        return None
 
 
 def parse_decimal(value: Any) -> Decimal | None:
@@ -167,6 +190,33 @@ def validate_workbook(workbook_data, schema, initial_issues=None):
                 continue
 
             if kind == "string":
+                continue
+
+            if kind == "date":
+                parsed_date = parse_date(value)
+                if parsed_date is None:
+                    add_issue(
+                        issues,
+                        excel_row,
+                        name,
+                        value,
+                        "DATA_NON_VALIDA",
+                        LEVEL_BLOCK,
+                        f"Il campo '{name}' deve contenere una data valida.",
+                        "Formato consigliato: GG/MM/AAAA.",
+                    )
+                    continue
+                if column.get("future", False) and parsed_date <= date.today():
+                    add_issue(
+                        issues,
+                        excel_row,
+                        name,
+                        value,
+                        "DATA_VALIDITA_NON_FUTURA",
+                        LEVEL_BLOCK,
+                        f"Il campo '{name}' deve indicare una data futura.",
+                        "La Data Validità Farmaco deve essere successiva alla data odierna.",
+                    )
                 continue
 
             if kind == "identifier":

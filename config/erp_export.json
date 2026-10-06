@@ -3,7 +3,11 @@
   "encoding": "utf-8-sig",
   "decimal": ",",
   "include_metadata": true,
-  "metadata_columns": ["Operazione", "Origine", "Batch sorgente"],
+  "metadata_columns": [
+    "Operazione",
+    "Origine",
+    "Batch sorgente"
+  ],
   "columns": [
     "Fornitore",
     "AIC",
@@ -26,6 +30,7 @@
     "Note",
     "X",
     "Y",
-    "Z"
+    "Z",
+    "Data Validità Farmaco"
   ]
 }

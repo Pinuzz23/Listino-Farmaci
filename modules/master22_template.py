@@ -30,6 +30,7 @@ GUIDANCE = {
     "X": "Indicare la lunghezza della confezione, espressa in centimetri (cm), considerando l'ingombro massimo esterno.",
     "Y": "Indicare la larghezza della confezione, espressa in centimetri (cm), considerando l'ingombro massimo esterno.",
     "Z": "Indicare l'altezza della confezione, espressa in centimetri (cm), considerando l'ingombro massimo esterno.",
+    "Data Validità Farmaco": "Indicare la data fino alla quale l'AIC può rimanere in commercio. Formato consigliato: GG/MM/AAAA.",
 }
 
 
@@ -72,6 +73,8 @@ def _build_template(path: Path, schema: dict) -> None:
             width = 24
         if header in {"Gruppo di Stivaggio", "Temperatura di Stivaggio"}:
             width = 26
+        if header == "Data Validità Farmaco":
+            width = 22
         ws.column_dimensions[header_cell.column_letter].width = width
 
     ws.row_dimensions[1].height = 75
@@ -111,5 +114,10 @@ def _build_template(path: Path, schema: dict) -> None:
         ws.add_data_validation(dv)
         target_col = ws.cell(2, header_to_col[field]).column_letter
         dv.add(f"{target_col}3:{target_col}10000")
+
+    if "Data Validità Farmaco" in header_to_col:
+        validity_col = ws.cell(2, header_to_col["Data Validità Farmaco"]).column_letter
+        for row_idx in range(3, 10001):
+            ws[f"{validity_col}{row_idx}"].number_format = "DD/MM/YYYY"
 
     wb.save(path)
