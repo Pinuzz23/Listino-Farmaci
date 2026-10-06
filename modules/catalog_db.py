@@ -12,6 +12,9 @@ if use_postgres():
 else:
     from modules.catalog_db_sqlite import *  # noqa: F401,F403
 
+# R14: estende il master a 23 campi e collega validità/rinnovi al catalogo.
+import modules.validity_r14  # noqa: F401
+
 # R10/R13: preview del delta di pubblicazione sul tracciato definitivo a 22 campi.
 from modules.master22_catalog import preview_publication  # noqa: E402,F401
 
