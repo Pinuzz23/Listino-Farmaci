@@ -55,6 +55,7 @@ MASTER_COLUMNS = [
     "X",
     "Y",
     "Z",
+    "Data Validità Farmaco",
 ]
 
 PRODUCT_EDIT_FIELDS = {
@@ -571,7 +572,8 @@ def _current_rows_for_product(product_id: int, db_path=None) -> list[tuple[int |
                 p.note AS "Note",
                 p.x AS "X",
                 p.y AS "Y",
-                p.z AS "Z"
+                p.z AS "Z",
+                p.data_validita_farmaco AS "Data Validità Farmaco"
             FROM products p
             JOIN offers o ON o.product_id = p.product_id
             WHERE p.product_id = {placeholder} AND o.active = 1
@@ -660,7 +662,8 @@ def product_edit_snapshot(product_id: int, db_path=None) -> dict[str, Any]:
                 stupefacente AS "Stupefacente", atc7 AS "ATC7", atc9 AS "ATC9",
                 fala_lasa AS "Fala / Lasa", gruppo_stivaggio AS "Gruppo di Stivaggio",
                 temperatura_stivaggio AS "Temperatura di Stivaggio", upc AS "UPC",
-                note AS "Note", x AS "X", y AS "Y", z AS "Z"
+                note AS "Note", x AS "X", y AS "Y", z AS "Z",
+                data_validita_farmaco AS "Data Validità Farmaco"
             FROM products WHERE product_id = {placeholder}
             """,
             conn,
@@ -847,6 +850,9 @@ def delta_dataframe(db_path: str | Path | None = None) -> pd.DataFrame:
     df["AIC"] = df["Payload"].map(lambda value: extract(value, "AIC"))
     df["Nome Commerciale"] = df["Payload"].map(lambda value: extract(value, "Nome Commerciale"))
     df["Fornitore"] = df["Payload"].map(lambda value: extract(value, "Fornitore"))
+    df["Data Validità Farmaco"] = df["Payload"].map(
+        lambda value: extract(value, "Data Validità Farmaco")
+    )
     return df.drop(columns=["Payload"])
 
 
