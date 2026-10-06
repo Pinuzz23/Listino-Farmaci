@@ -1114,5 +1114,16 @@ def renew_product_validity(
 # and catalog_db.py, then this layer extends the current publication path.
 order_management.init_db = init_db
 master22.preview_publication = preview_publication
+
+# R13 usa una funzione di preview locale nel proprio master22_publish_records.
+# La sostituiamo esplicitamente affinché anche la scrittura di publication_rows
+# e la successiva coda ERP vedano Data Validità Farmaco come modifica anagrafica.
+if use_postgres():
+    try:
+        import modules.catalog_db_postgres_r13 as _r13
+        _r13.master22_preview_publication = preview_publication
+    except Exception:
+        pass
+
 order_management._r10_publish_records = publish_core_with_validity
 order_management.catalogue_dataframe = catalogue_dataframe
