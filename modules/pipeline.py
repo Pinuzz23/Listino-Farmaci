@@ -4,6 +4,7 @@ from modules.aifa import compare_upc_with_aifa, reconcile_with_aifa
 from modules.analytics import build_dataset_summary
 from modules.normalizer import normalize_workbook
 from modules.validator import validate_workbook
+from modules.validity_r14 import apply_validity_validation
 
 
 def process_workbook(
@@ -31,6 +32,12 @@ def process_workbook(
     aifa_upc_checks, aifa_upc_issues = compare_upc_with_aifa(enriched_data, schema, aifa_dir)
     initial_issues = quality_issues + aifa_issues + aifa_upc_issues
     result = validate_workbook(enriched_data, schema, initial_issues=initial_issues)
+    result = apply_validity_validation(
+        result,
+        enriched_data,
+        schema,
+        schema.get("catalogue", {}).get("db_path", "data/listino.db"),
+    )
 
     summary = build_dataset_summary(
         enriched_data,
