@@ -850,6 +850,9 @@ def delta_dataframe(db_path: str | Path | None = None) -> pd.DataFrame:
     df["AIC"] = df["Payload"].map(lambda value: extract(value, "AIC"))
     df["Nome Commerciale"] = df["Payload"].map(lambda value: extract(value, "Nome Commerciale"))
     df["Fornitore"] = df["Payload"].map(lambda value: extract(value, "Fornitore"))
+    df["Data Validità Farmaco"] = df["Payload"].map(
+        lambda value: extract(value, "Data Validità Farmaco")
+    )
     return df.drop(columns=["Payload"])
 
 
