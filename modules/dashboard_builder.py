@@ -8,7 +8,9 @@ from typing import Any
 
 import pandas as pd
 
-from modules.catalog_db import catalogue_dataframe, init_db
+from modules.catalog_db import init_db
+import modules.order_management as order_management
+from modules.validity_r14 import catalogue_with_validity_metrics
 
 
 CATEGORICAL_FIELDS = [
@@ -17,6 +19,7 @@ CATEGORICAL_FIELDS = [
     "Codice Fornitore",
     "Nome Commerciale",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "Materiale Pericoloso",
     "Stupefacente",
     "ATC7",
@@ -25,6 +28,7 @@ CATEGORICAL_FIELDS = [
     "Gruppo di Stivaggio",
     "Temperatura di Stivaggio",
     "IVA",
+    "Stato Validità",
 ]
 
 NUMERIC_FIELDS = [
@@ -32,6 +36,11 @@ NUMERIC_FIELDS = [
     "Prezzo Confezione",
     "UPC",
     "Minimo Movimentabile",
+    "X",
+    "Y",
+    "Z",
+    "Giorni Residui",
+    "Vita Consumata %",
 ]
 
 TABLE_FIELDS = [
@@ -40,6 +49,7 @@ TABLE_FIELDS = [
     "Codice Fornitore",
     "Nome Commerciale",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "Materiale Pericoloso",
     "Stupefacente",
     "ATC7",
@@ -53,6 +63,14 @@ TABLE_FIELDS = [
     "Minimo Movimentabile",
     "IVA",
     "Note",
+    "X",
+    "Y",
+    "Z",
+    "Data Validità Farmaco",
+    "Stato Validità",
+    "Giorni Residui",
+    "Vita Consumata %",
+    "Soglia Critica",
     "Ultimo aggiornamento",
     "Batch corrente",
 ]
@@ -60,12 +78,14 @@ TABLE_FIELDS = [
 GLOBAL_FILTER_FIELDS = [
     "Fornitore",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "ATC7",
     "Gruppo di Stivaggio",
     "Stupefacente",
     "Materiale Pericoloso",
     "Fala / Lasa",
     "IVA",
+    "Stato Validità",
 ]
 
 
@@ -73,13 +93,9 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def _connect(db_path: str | Path) -> sqlite3.Connection:
-    db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _connect(db_path: str | Path):
+    # R14.1: usa lo stesso backend del catalogo (PostgreSQL/Supabase o SQLite).
+    return order_management._connect(db_path)
 
 
 def init_dashboard_tables(db_path: str | Path) -> None:
@@ -311,7 +327,7 @@ def move_widget(db_path: str | Path, widget_id: int, direction: int) -> None:
 
 
 def catalogue_for_dashboards(db_path: str | Path) -> pd.DataFrame:
-    df = catalogue_dataframe(db_path)
+    df = catalogue_with_validity_metrics(db_path)
     if df.empty:
         return df
     for col in NUMERIC_FIELDS:
@@ -527,3 +543,33 @@ def trend_dataframe(db_path: str | Path, current_filtered: pd.DataFrame, config:
     else:
         result["Serie"] = metric
     return result[["Data", "Valore", "Serie"]].sort_values("Data")
+
+
+# R14.1: persistenza dashboard separata dai calcoli e condivisa tra
+# PostgreSQL/Supabase e SQLite locale. Le assegnazioni sostituiscono le
+# implementazioni legacy definite sopra senza cambiare l'API pubblica.
+from modules.dashboard_storage import (  # noqa: E402
+    add_widget as _storage_add_widget,
+    create_dashboard as _storage_create_dashboard,
+    delete_dashboard as _storage_delete_dashboard,
+    delete_widget as _storage_delete_widget,
+    get_dashboard as _storage_get_dashboard,
+    init_dashboard_tables as _storage_init_dashboard_tables,
+    list_dashboards as _storage_list_dashboards,
+    list_widgets as _storage_list_widgets,
+    move_widget as _storage_move_widget,
+    update_dashboard as _storage_update_dashboard,
+    update_widget as _storage_update_widget,
+)
+
+init_dashboard_tables = _storage_init_dashboard_tables
+list_dashboards = _storage_list_dashboards
+create_dashboard = _storage_create_dashboard
+update_dashboard = _storage_update_dashboard
+delete_dashboard = _storage_delete_dashboard
+get_dashboard = _storage_get_dashboard
+list_widgets = _storage_list_widgets
+add_widget = _storage_add_widget
+update_widget = _storage_update_widget
+delete_widget = _storage_delete_widget
+move_widget = _storage_move_widget

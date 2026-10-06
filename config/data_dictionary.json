@@ -20,5 +20,6 @@
   "Note": "Campo libero per informazioni accessorie del tracciato.",
   "X": "Lunghezza massima esterna della confezione, espressa in centimetri (cm). Deve essere un numero maggiore di zero.",
   "Y": "Larghezza massima esterna della confezione, espressa in centimetri (cm). Deve essere un numero maggiore di zero.",
-  "Z": "Altezza massima esterna della confezione, espressa in centimetri (cm). Deve essere un numero maggiore di zero."
+  "Z": "Altezza massima esterna della confezione, espressa in centimetri (cm). Deve essere un numero maggiore di zero.",
+  "Data Validità Farmaco": "Data limite commerciale del farmaco nel processo interno. Alla prima pubblicazione avvia la finestra di vita residua; la stessa data non la resetta, mentre una data successiva avvia un rinnovo."
 }

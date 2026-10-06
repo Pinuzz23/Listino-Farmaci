@@ -1,36 +1,111 @@
-# Listino Farmaci — Wave 2 Demo R9
+# Listino Farmaci — R14.1
 
-Applicazione locale Streamlit per validazione e correzione assistita dei tracciati farmaceutici, riconciliazione AIFA, pubblicazione su listino SQLite, Assistente Listino AI e dashboard self-service.
+Applicazione Streamlit per validazione dei tracciati farmaceutici, riconciliazione AIFA, pubblicazione del listino su PostgreSQL/Supabase con fallback SQLite locale, gestione ERP, dashboard e monitoraggio della validità commerciale.
 
-## Novità R9: Validation Copilot con WRITE controllati
+## R14.1
 
-La R9 introduce un vero flusso operativo AI:
+La R14.1 consolida la R14 sul master definitivo a **23 campi**.
+
+Principali funzioni:
+
+- validazione Excel con controlli strutturali, AIFA, prezzi e stivaggio;
+- `Data Validità Farmaco` con stati **REGOLARE / ATTENZIONE / CRITICO / SCADUTO / SENZA DATA**;
+- rinnovo validità Buyer/Admin con motivazione, storico e delta ERP;
+- guard idempotente che ricostruisce la persistenza validità se il core della pubblicazione è già stato confermato;
+- coda delta ERP Buyer e Order Management;
+- Assistente Listino locale via Ollama con fallback controllato;
+- query su stato validità, giorni residui e scadenze entro N giorni;
+- dashboard self-service con backend PostgreSQL/Supabase o SQLite;
+- modello dashboard Validità pronto all'uso;
+- template R14 generato automaticamente se non è presente nel deployment;
+- CI GitHub Actions con test unitari e di integrazione.
+
+## Master 23 campi
+
+1. Fornitore
+2. AIC
+3. Codice Fornitore
+4. Nome Commerciale
+5. Principio Attivo
+6. Forma Farmaceutica
+7. Materiale Pericoloso
+8. Stupefacente
+9. ATC7
+10. ATC9
+11. Fala / Lasa
+12. Gruppo di Stivaggio
+13. Temperatura di Stivaggio
+14. Prezzo Unitario
+15. Prezzo Confezione
+16. UPC
+17. Minimo Movimentabile
+18. IVA
+19. Note
+20. X
+21. Y
+22. Z
+23. Data Validità Farmaco
+
+Il template usa riga 1 per le indicazioni, riga 2 per le intestazioni e i dati dalla riga 3. Sono accettati anche file operativi con intestazioni direttamente in riga 1.
+
+## Validità farmaco
+
+La finestra parte quando una specifica validità entra a listino per la prima volta.
+
+- stessa data ripubblicata: la finestra **non viene resettata** e non viene creato un nuovo evento storico;
+- dal 50% della vita iniziale: **ATTENZIONE**;
+- da 2/3: **CRITICO**;
+- alla data limite: **SCADUTO**;
+- una data successiva crea un rinnovo;
+- un rinnovo con data uguale o precedente viene rifiutato.
+
+Il rinnovo manuale è disponibile a Buyer/Admin e genera storico e delta ERP `UPDATE`.
+
+### Recovery R14.1
+
+`modules/validity_reconciliation_guard.py` usa `publication_rows` come sorgente immutabile. Se la pubblicazione core è stata salvata ma la persistenza della validità si interrompe, il guard ricostruisce solo i dati mancanti in modo idempotente senza riportare indietro rinnovi successivi.
+
+## Assistente Listino
+
+Esempi:
 
 ```text
-richiesta utente
-    ↓
-LLM / planner locale
-    ↓
-Tool Registry 2.0
-    ↓
-Change Set proposto
-    ↓
-anteprima + selezione
-    ↓
-simulazione prima/dopo
-    ↓
-conferma operatore
-    ↓
-WRITE controllato
-    ↓
-rivalidazione completa
+Mostrami i farmaci critici
+Quali farmaci scadono entro 60 giorni?
+Quanti farmaci sono in attenzione?
+Scaricami il listino del fornitore Angelini
+Mostrami i prodotti in frigo con IVA 10%
+Storico prezzi dell'AIC 012745055
 ```
 
-L'LLM **non modifica mai direttamente il dataset** e non genera SQL. Può invocare tool di lettura e di proposta; l'applicazione effettiva è eseguita da Python solo dopo conferma nell'interfaccia.
+L'LLM interpreta la frase dell'utente. Grounding, filtri e accesso ai dati restano controllati dal codice Python; l'LLM non esegue SQL.
 
-## Avvio rapido
+## Dashboard
 
-Da Visual Studio Code:
+Le dashboard personalizzate salvano soltanto configurazione e widget. I dati sono letti sempre dal listino corrente.
+
+In produzione la configurazione viene salvata nelle tabelle PostgreSQL/Supabase:
+
+```text
+public.custom_dashboards
+public.dashboard_widgets
+```
+
+In locale viene usato lo stesso modello su SQLite.
+
+## Database
+
+Il backend è PostgreSQL/Supabase quando è configurato `DATABASE_URL` o Streamlit `[database].url`. In assenza di configurazione viene usato SQLite locale.
+
+Le strutture utenti sono separate dai dati operativi. Lo script:
+
+```text
+sql/reset_operational_data_preserve_users.sql
+```
+
+azzera il dominio operativo senza eliminare Auth, profili, ruoli, permessi, richieste di accesso o audit utenti.
+
+## Avvio locale
 
 ```powershell
 python -m venv .venv
@@ -39,156 +114,27 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-In alternativa su Windows è disponibile `AVVIA_DEMO.bat`.
+## Test
 
-## Sezioni
-
-- **Dashboard** — panoramica operativa.
-- **Validazione** — upload, Validation Copilot R9, AIFA, correzione manuale e pubblicazione.
-- **Listino prodotti** — ricerca, filtri, dettaglio e storico prezzi.
-- **Assistente Listino** — interrogazione conversazionale via Ollama / fallback controllato.
-- **Le mie Dashboard** — builder self-service di KPI, grafici, Top N, tabelle e trend prezzi.
-- **Pubblicazioni** — audit dei batch pubblicati.
-
-## Copilot Validazione R9
-
-Esempi:
-
-```text
-Perché questo file non passa?
-Da dove comincio a correggere?
-Correggi automaticamente tutto quello che puoi.
-Sistema gli errori di prezzo confezione.
-Correggi i problemi di stivaggio.
-Allinea i principi attivi con AIFA.
-Cosa non va alla riga 17?
-Spiegami il campo Minimo Movimentabile.
+```powershell
+python scripts\test_validity_r14.py
+python scripts\test_validity_r14_integration.py
+python scripts\test_template_r14.py
+python scripts\test_assistant_r14_1.py
+python scripts\test_dashboard_r7.py
 ```
 
-### Change Set
-
-Ogni proposta mostra:
-
-- riga Excel;
-- campo;
-- valore precedente;
-- valore proposto;
-- fonte;
-- confidence;
-- rischio;
-- motivazione.
-
-Le modifiche `sensitive` sono deselezionate per default e richiedono una conferma aggiuntiva.
-
-### Simulazione
-
-Il pulsante `Simula impatto` applica le sole modifiche selezionate a una copia temporanea e mostra il numero di errori/warning attesi dopo la correzione. Il dataset reale non viene toccato.
-
-### Applicazione e Undo
-
-`Applica selezionate` esegue il tool WRITE dopo conferma e rivalida completamente il file. La sessione conserva fino a 10 checkpoint e consente `Annulla ultima modifica AI`.
-
-## Tool Registry 2.0
-
-### READ
-
-- `validation_summary`
-- `validation_list_issues`
-- `validation_group_issues`
-- `validation_show_row`
-- `validation_explain_issue`
-- `validation_correction_plan`
-- `validation_aifa_findings`
-- `validation_normalizations`
-- `validation_operator_changes`
-- `validation_describe_field`
-- `validation_business_rules`
-
-### GENERATE
-
-- `validation_propose_package_price_fix`
-- `validation_propose_storage_group_fix`
-- `validation_propose_aifa_alignment`
-- `validation_propose_supplier_from_aifa`
-- `validation_propose_identical_duplicate_deletion`
-- `validation_propose_all_deterministic`
-
-### WRITE
-
-- `validation_apply_change_set`
-
-I tool WRITE non vengono mai invocati dal planner LLM.
-
-## Regole di correzione disponibili
-
-### Prezzo Confezione
-
-Propone esclusivamente:
-
-```text
-Prezzo Confezione = Prezzo Unitario × UPC
-```
-
-Non modifica autonomamente Prezzo Unitario o UPC.
-
-### Stivaggio
-
-Utilizza le regole configurate nel master. S7/S8 hanno priorità; le temperature vengono trasformate in gruppo solo nelle casistiche deterministiche definite.
-
-### AIFA
-
-Con match AIC esatto può proporre l'allineamento di:
-
-- Nome Commerciale;
-- Principio Attivo;
-- ATC7.
-
-La sovrascrittura di un valore già presente è `sensitive`. Azienda titolare AIFA → Fornitore è sempre una proposta sensibile.
-
-### Duplicati
-
-Sono proponibili per eliminazione solo duplicati completamente identici sui 18 campi. Il sistema non decide automaticamente quale riga mantenere se i dati differiscono.
+La CI esegue inoltre `compileall` a ogni push/PR sulle branch configurate.
 
 ## Knowledge layer
 
-La semantica del dominio è centralizzata in:
+Le definizioni e le regole di dominio usate dal Validation Copilot sono centralizzate in:
 
 ```text
 config/data_dictionary.json
 config/business_rules.json
 ```
 
-Questo aiuta l'LLM a spiegare correttamente concetti come UPC, Minimo Movimentabile, Azienda AIFA vs Fornitore e regole prezzo/stivaggio.
-
-## Audit AI
-
-Le interazioni e le azioni controllate vengono registrate in:
-
-```text
-logs/validation_ai_audit.jsonl
-```
-
-L'audit non blocca il flusso operativo in caso di problemi di scrittura del log.
-
-## Database
-
-Il listino locale rimane in:
-
-```text
-data/listino.db
-```
-
-La R9 non introduce una migrazione obbligatoria del database rispetto alla R7/R8. Per mantenere i dati già pubblicati puoi copiare il tuo `listino.db` nella cartella `data` della R9.
-
-## Test
-
-```powershell
-python scripts\test_validation_copilot_r9.py
-python scripts\test_validation_copilot_r8.py
-python scripts\test_assistant_r6.py
-python scripts\test_dashboard_r7.py
-```
-
 ## Ollama
 
-Per l'installazione e i modelli locali consulta `OLLAMA_SETUP.md`. Se Ollama non è disponibile, il Copilot mantiene un planner deterministico di fallback per le richieste principali.
+Per configurazione e modelli locali consulta `OLLAMA_SETUP.md`.

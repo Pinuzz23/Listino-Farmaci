@@ -27,6 +27,7 @@ from modules.reporter import build_normalized_workbook, build_validation_report
 from modules.schema_loader import load_schema
 from modules.ui import hero, inject_styles, status_banner
 from modules.llm_assistant import ollama_status
+from modules.master22_template import ensure_master_template
 from modules.validation_agent import append_audit_log, run_validation_copilot
 from modules.change_set import change_set_to_audit_rows, simulate_change_set
 from modules.validation_tools import build_validation_registry
@@ -203,7 +204,15 @@ def _build_editor_config(schema: dict):
 # --------------------------- SIDEBAR ---------------------------
 with st.sidebar:
     st.subheader("Caricamento")
-    template_path = Path(schema.get("template_reference", {}).get("bundled_name", "templates/Template_Tracciato_Master_R14.xlsx"))
+    try:
+        template_path = ensure_master_template(schema)
+    except Exception:
+        template_path = Path(
+            schema.get("template_reference", {}).get(
+                "bundled_name",
+                "templates/Template_Tracciato_Master_R14.xlsx",
+            )
+        )
     if template_path.exists():
         st.download_button(
             "⬇️ Scarica template master",
