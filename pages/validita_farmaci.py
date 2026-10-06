@@ -233,30 +233,36 @@ if role_id in {"BUYER", "ADMIN"}:
             "🔄 Conferma rinnovo",
             type="primary",
             use_container_width=True,
-            disabled=not confirm,
         )
 
     if submitted:
-        try:
-            result = renew_product_validity(
-                product_id,
-                new_validity,
-                reason,
-                db_path,
+        if not confirm:
+            st.warning(
+                "Per procedere devi spuntare la conferma del rinnovo."
             )
-        except ValidityError as exc:
-            st.error(str(exc))
-        except Exception as exc:
-            st.error("Rinnovo non riuscito.")
-            with st.expander("Dettaglio tecnico rinnovo"):
-                st.code(f"{type(exc).__name__}: {exc}")
+        elif not str(reason or "").strip():
+            st.warning("Inserisci una motivazione per il rinnovo.")
         else:
-            st.success(
-                f"Validità rinnovata al {new_validity.strftime('%d/%m/%Y')}. "
-                f"Nuova finestra: {result['initial_days']} giorni. "
-                f"Delta ERP: {result['source_ref']}."
-            )
-            st.rerun()
+            try:
+                result = renew_product_validity(
+                    product_id,
+                    new_validity,
+                    reason,
+                    db_path,
+                )
+            except ValidityError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error("Rinnovo non riuscito.")
+                with st.expander("Dettaglio tecnico rinnovo"):
+                    st.code(f"{type(exc).__name__}: {exc}")
+            else:
+                st.success(
+                    f"Validità rinnovata al {new_validity.strftime('%d/%m/%Y')}. "
+                    f"Nuova finestra: {result['initial_days']} giorni. "
+                    f"Delta ERP: {result['source_ref']}."
+                )
+                st.rerun()
 else:
     st.info("Il rinnovo è riservato ai profili Buyer e Admin.")
 
