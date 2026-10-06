@@ -333,7 +333,7 @@ with create_tab:
     st.caption("La dashboard salva soltanto la configurazione dei widget. I numeri si aggiornano sempre sui dati correnti del listino.")
 
     st.markdown("#### Modelli pronti")
-    t1, t2, t3 = st.columns(3)
+    t1, t2, t3, t4 = st.columns(4)
     if t1.button("📦 Crea Overview Listino", use_container_width=True):
         try:
             new_id = create_dashboard(db_path, "Overview Listino", "Panoramica generale del listino pubblicato.")
@@ -367,6 +367,19 @@ with create_tab:
             add_widget(db_path, new_id, "Dettaglio logistico", "Tabella", {"columns": ["AIC", "Nome Commerciale", "Fornitore", "Gruppo di Stivaggio", "Temperatura di Stivaggio", "UPC", "Minimo Movimentabile"], "limit": 75}, "full")
             st.session_state["r7_dashboard_id"] = new_id
             st.success("Modello Logistica creato.")
+            st.rerun()
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    if t4.button("⏳ Crea Validità", use_container_width=True):
+        try:
+            new_id = create_dashboard(db_path, "Validità Farmaci", "Stato validità, vita residua e priorità di rinnovo.")
+            add_widget(db_path, new_id, "Farmaci critici", "KPI", {"metric": "Righe listino", "filter_field": "Stato Validità", "filter_value": "CRITICO"}, "half")
+            add_widget(db_path, new_id, "Farmaci in attenzione", "KPI", {"metric": "Righe listino", "filter_field": "Stato Validità", "filter_value": "ATTENZIONE"}, "half")
+            add_widget(db_path, new_id, "Più vicini alla scadenza", "Top N", {"label": "Nome Commerciale", "metric": "Giorni Residui", "direction": "asc", "top_n": 15}, "full")
+            add_widget(db_path, new_id, "Dettaglio validità", "Tabella", {"columns": ["AIC", "Nome Commerciale", "Fornitore", "Data Validità Farmaco", "Stato Validità", "Giorni Residui", "Vita Consumata %", "Soglia Critica"], "limit": 100}, "full")
+            st.session_state["r7_dashboard_id"] = new_id
+            st.success("Modello Validità creato.")
             st.rerun()
         except ValueError as exc:
             st.warning(str(exc))
