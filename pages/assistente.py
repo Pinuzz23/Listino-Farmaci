@@ -18,6 +18,7 @@ from modules.catalog_db import (
     price_history_dataframe,
 )
 from modules.llm_assistant import interpret_request_llm, ollama_status
+from modules.validity_r14 import catalogue_with_validity_metrics
 from modules.schema_loader import load_schema
 from modules.ui import hero, inject_styles
 
@@ -36,7 +37,7 @@ hero(
     "Interpreta richieste in linguaggio naturale con un LLM locale e le esegue solo dopo validazione sul listino pubblicato",
 )
 
-catalogue = catalogue_dataframe(db_path)
+catalogue = catalogue_with_validity_metrics(db_path)
 if catalogue.empty:
     st.info("Il listino è vuoto. Pubblica almeno un tracciato dalla pagina Validazione prima di usare l'assistente.")
     st.stop()
@@ -96,6 +97,9 @@ with st.expander("Cosa puoi chiedere", expanded=False):
         - `Prodotti Fala / Lasa = Y`
         - `Scarica i prodotti con temperatura da + 2 a 8°C`
         - `Note contengono urgente`
+        - `Mostrami i farmaci critici`
+        - `Quali farmaci scadono entro 60 giorni?`
+        - `Quanti farmaci sono in attenzione?`
         - `Qual è il prezzo confezione medio di Angelini?`
         - `Scarica tutto il listino` *(unico caso in cui un export senza criteri è ammesso)*
         """
@@ -251,6 +255,8 @@ for idx, message in enumerate(st.session_state.assistant_messages_r5):
                 "Materiale Pericoloso", "Stupefacente", "ATC7", "ATC9", "Fala / Lasa",
                 "Gruppo di Stivaggio", "Temperatura di Stivaggio", "Prezzo Unitario",
                 "Prezzo Confezione", "UPC", "Minimo Movimentabile", "IVA", "Note",
+                "X", "Y", "Z", "Data Validità Farmaco", "Stato Validità",
+                "Giorni Residui", "Vita Consumata %", "Soglia Critica",
             ]
             preview_cols = [c for c in preview_cols if c in results.columns]
             st.dataframe(

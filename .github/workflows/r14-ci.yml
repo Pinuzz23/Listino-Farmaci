@@ -1,0 +1,30 @@
+name: R14.1 CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/r14-1-hardening
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q app.py modules pages scripts
+      - name: Validity unit tests
+        run: python scripts/test_validity_r14.py
+      - name: Validity integration tests
+        run: python scripts/test_validity_r14_integration.py
+      - name: R14 template test
+        run: python scripts/test_template_r14.py

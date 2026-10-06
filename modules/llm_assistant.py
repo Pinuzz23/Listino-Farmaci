@@ -27,6 +27,7 @@ TRACE_FIELDS = [
     "Codice Fornitore",
     "Nome Commerciale",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "Materiale Pericoloso",
     "Stupefacente",
     "ATC7",
@@ -40,6 +41,14 @@ TRACE_FIELDS = [
     "Minimo Movimentabile",
     "IVA",
     "Note",
+    "X",
+    "Y",
+    "Z",
+    "Data Validità Farmaco",
+    "Stato Validità",
+    "Giorni Residui",
+    "Vita Consumata %",
+    "Soglia Critica",
 ]
 
 TEXT_FIELDS = {
@@ -48,6 +57,7 @@ TEXT_FIELDS = {
     "Codice Fornitore",
     "Nome Commerciale",
     "Principio Attivo",
+    "Forma Farmaceutica",
     "Materiale Pericoloso",
     "Stupefacente",
     "ATC7",
@@ -56,6 +66,9 @@ TEXT_FIELDS = {
     "Gruppo di Stivaggio",
     "Temperatura di Stivaggio",
     "Note",
+    "Data Validità Farmaco",
+    "Stato Validità",
+    "Soglia Critica",
 }
 NUMERIC_FIELDS = {
     "Prezzo Unitario",
@@ -63,6 +76,11 @@ NUMERIC_FIELDS = {
     "UPC",
     "Minimo Movimentabile",
     "IVA",
+    "X",
+    "Y",
+    "Z",
+    "Giorni Residui",
+    "Vita Consumata %",
 }
 SORTABLE_FIELDS = set(TRACE_FIELDS) | {"Ultimo aggiornamento"}
 
@@ -77,6 +95,7 @@ FIELD_ALIASES = {
     "farmaco": "Nome Commerciale",
     "principio attivo": "Principio Attivo",
     "molecola": "Principio Attivo",
+    "forma farmaceutica": "Forma Farmaceutica",
     "materiale pericoloso": "Materiale Pericoloso",
     "pericoloso": "Materiale Pericoloso",
     "stupefacente": "Stupefacente",
@@ -103,6 +122,19 @@ FIELD_ALIASES = {
     "minimo movimentabile": "Minimo Movimentabile",
     "iva": "IVA",
     "note": "Note",
+    "x": "X",
+    "y": "Y",
+    "z": "Z",
+    "data validita farmaco": "Data Validità Farmaco",
+    "data validità farmaco": "Data Validità Farmaco",
+    "validita": "Data Validità Farmaco",
+    "validità": "Data Validità Farmaco",
+    "stato validita": "Stato Validità",
+    "stato validità": "Stato Validità",
+    "giorni residui": "Giorni Residui",
+    "giorni alla scadenza": "Giorni Residui",
+    "vita consumata": "Vita Consumata %",
+    "soglia critica": "Soglia Critica",
     "ultimo aggiornamento": "Ultimo aggiornamento",
 }
 
@@ -117,6 +149,7 @@ Campi interrogabili del tracciato:
 - Codice Fornitore
 - Nome Commerciale
 - Principio Attivo
+- Forma Farmaceutica
 - Materiale Pericoloso
 - Stupefacente
 - ATC7
@@ -130,6 +163,14 @@ Campi interrogabili del tracciato:
 - Minimo Movimentabile
 - IVA
 - Note
+- X
+- Y
+- Z
+- Data Validità Farmaco
+- Stato Validità
+- Giorni Residui
+- Vita Consumata %
+- Soglia Critica
 
 Puoi anche ordinare per Ultimo aggiornamento.
 
@@ -156,7 +197,9 @@ Regole azione:
 Regole filtri:
 - Usa SOLO i nomi campo dell'elenco sopra.
 - eq = uguaglianza, contains = contiene testo.
-- gt/gte/lt/lte/between solo sui campi numerici Prezzo Unitario, Prezzo Confezione, UPC, Minimo Movimentabile, IVA.
+- gt/gte/lt/lte/between solo sui campi numerici Prezzo Unitario, Prezzo Confezione, UPC, Minimo Movimentabile, IVA, X, Y, Z, Giorni Residui, Vita Consumata %.
+- Per "scade/scadono entro N giorni" usa Giorni Residui between 0 e N.
+- Stato Validità ammette REGOLARE, ATTENZIONE, CRITICO, SCADUTO, SENZA DATA.
 - Per between usa value come limite inferiore e value2 come limite superiore.
 - IVA va espressa come percentuale leggibile: 0, 4, 10 o 22 (non 0.10).
 - Materiale Pericoloso e Fala / Lasa: usa Y o N.
@@ -193,6 +236,12 @@ JSON: {"action":"export","filters":[{"field":"Temperatura di Stivaggio","operato
 
 Utente: "note contengono urgente"
 JSON: {"action":"search","filters":[{"field":"Note","operator":"contains","value":"urgente","value2":null}],"sort":{"field":null,"direction":"asc"},"limit":null,"aggregation":{"function":null,"field":null},"needs_clarification":false,"clarification":""}
+
+Utente: "quali farmaci scadono entro 60 giorni?"
+JSON: {"action":"search","filters":[{"field":"Giorni Residui","operator":"between","value":0,"value2":60}],"sort":{"field":"Giorni Residui","direction":"asc"},"limit":null,"aggregation":{"function":null,"field":null},"needs_clarification":false,"clarification":""}
+
+Utente: "mostrami i farmaci critici"
+JSON: {"action":"search","filters":[{"field":"Stato Validità","operator":"eq","value":"CRITICO","value2":null}],"sort":{"field":"Giorni Residui","direction":"asc"},"limit":null,"aggregation":{"function":null,"field":null},"needs_clarification":false,"clarification":""}
 
 Se la frase è incompleta o manca il valore richiesto, needs_clarification=true.
 Non usare markdown, commenti o testo fuori dal JSON.
@@ -474,6 +523,11 @@ def _infer_ranking_from_text(text: str) -> dict | None:
         ("minimo movimentabile", "Minimo Movimentabile"),
         ("upc", "UPC"),
         ("iva", "IVA"),
+        ("giorni residui", "Giorni Residui"),
+        ("vita consumata", "Vita Consumata %"),
+        ("x", "X"),
+        ("y", "Y"),
+        ("z", "Z"),
     ]
     field = None
     for alias, canonical in aliases:

@@ -14,6 +14,8 @@ else:
 
 # R14: estende il master a 23 campi e collega validità/rinnovi al catalogo.
 import modules.validity_r14  # noqa: F401
+# R14.1: self-healing idempotente della persistenza validità.
+import modules.validity_reconciliation_guard  # noqa: F401
 
 # R10/R13/R14: preview del delta di pubblicazione sul tracciato definitivo a 23 campi.
 from modules.master22_catalog import preview_publication  # noqa: E402,F401
