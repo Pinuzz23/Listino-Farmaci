@@ -17,6 +17,9 @@ if use_postgres():
     # recupero idempotente dei delta mancanti dalle pubblicazioni R12 in poi.
     import modules.erp_delta_guard  # noqa: F401
 
+# R14: validità commerciale AIC, monitoraggio e rinnovo Buyer.
+import modules.validity_r14  # noqa: F401
+
 from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.order_management import init_db as init_order_management_db
 
@@ -112,6 +115,15 @@ if allowed("view_catalogue"):
             title="Listino prodotti",
             icon="📦",
             default=not allowed("view_dashboard"),
+        )
+    )
+
+if role_id in {"BUYER", "ADMIN", "ORDER_MANAGEMENT"} and allowed("view_catalogue"):
+    operativita.append(
+        st.Page(
+            "pages/validita_farmaci.py",
+            title="Monitor validità",
+            icon="⏳",
         )
     )
 
