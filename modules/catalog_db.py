@@ -15,7 +15,7 @@ else:
 # R14: estende il master a 23 campi e collega validità/rinnovi al catalogo.
 import modules.validity_r14  # noqa: F401
 
-# R10/R13: preview del delta di pubblicazione sul tracciato definitivo a 22 campi.
+# R10/R13/R14: preview del delta di pubblicazione sul tracciato definitivo a 23 campi.
 from modules.master22_catalog import preview_publication  # noqa: E402,F401
 
 # R12/R13: ruolo Order Management, coda ERP e pubblicazione Buyer ottimizzata.
