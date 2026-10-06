@@ -331,6 +331,11 @@ def interpret_request(text: str, catalogue: pd.DataFrame) -> dict:
         ("minimo movimentabile", "Minimo Movimentabile"),
         ("upc", "UPC"),
         ("iva", "IVA"),
+        ("giorni residui", "Giorni Residui"),
+        ("vita consumata", "Vita Consumata %"),
+        ("x", "X"),
+        ("y", "Y"),
+        ("z", "Z"),
     ]
     for alias, canonical in numeric_aliases:
         if alias in norm:
@@ -352,6 +357,32 @@ def interpret_request(text: str, catalogue: pd.DataFrame) -> dict:
             recognised.append(
                 f"Ordina {ranking_field} {'decrescente' if direction == 'desc' else 'crescente'} · Limite = {limit}"
             )
+
+    # Stato validità e scadenze (R14.1). Questi campi sono derivati in Python.
+    validity_status = None
+    if any(term in norm for term in ("critico", "critici", "critica", "critiche")):
+        validity_status = "CRITICO"
+    elif any(term in norm for term in ("scaduto", "scaduti", "scaduta", "scadute")):
+        validity_status = "SCADUTO"
+    elif "attenzione" in norm and "valid" in norm:
+        validity_status = "ATTENZIONE"
+    elif any(term in norm for term in ("senza validita", "senza data validita", "validita mancante")):
+        validity_status = "SENZA DATA"
+    elif any(term in norm for term in ("validita regolare", "validita regolari", "farmaci regolari")):
+        validity_status = "REGOLARE"
+
+    if validity_status and "Stato Validità" in catalogue.columns:
+        filters["Stato Validità"] = validity_status
+        recognised.append(f"Stato Validità = {validity_status}")
+
+    expiry_window = re.search(
+        r"(?:scad\w*|validit\w*)[^\d]{0,30}(?:entro|nei prossimi|prossimi)\s+(\d{1,4})\s+giorni",
+        norm,
+    )
+    if expiry_window and "Giorni Residui" in catalogue.columns:
+        days = max(0, min(int(expiry_window.group(1)), 3650))
+        filters["_validity_days"] = {"min": 0, "max": days}
+        recognised.append(f"Giorni Residui tra 0 e {days}")
 
     # Optional commercial code lookup.
     if "codice fornitore" in norm:
@@ -397,7 +428,10 @@ def _apply_generic_filters(df: pd.DataFrame, filters: list[dict]) -> pd.DataFram
         value = item.get("value")
         value2 = item.get("value2")
 
-        numeric_fields = {"Prezzo Unitario", "Prezzo Confezione", "UPC", "Minimo Movimentabile", "IVA"}
+        numeric_fields = {
+            "Prezzo Unitario", "Prezzo Confezione", "UPC", "Minimo Movimentabile", "IVA",
+            "X", "Y", "Z", "Giorni Residui", "Vita Consumata %",
+        }
         if field not in numeric_fields and operator in {"eq", "contains"}:
             series = out[field].fillna("").astype(str).map(normalize_text)
             target = normalize_text(value)
@@ -445,7 +479,10 @@ def apply_request(catalogue: pd.DataFrame, request: dict) -> pd.DataFrame:
         sort_field = sort_spec.get("field")
         if sort_field and sort_field in df.columns:
             ascending = sort_spec.get("direction", "asc") != "desc"
-            if sort_field in {"Prezzo Unitario", "Prezzo Confezione", "UPC", "Minimo Movimentabile", "IVA"}:
+            if sort_field in {
+                "Prezzo Unitario", "Prezzo Confezione", "UPC", "Minimo Movimentabile", "IVA",
+                "X", "Y", "Z", "Giorni Residui", "Vita Consumata %",
+            }:
                 # Stable numeric sort while keeping original display values.
                 order = pd.to_numeric(df[sort_field], errors="coerce")
                 df = df.assign(__sort_value=order).sort_values(
@@ -462,7 +499,7 @@ def apply_request(catalogue: pd.DataFrame, request: dict) -> pd.DataFrame:
     # Legacy deterministic parser retained as a safe fallback.
     filters = request.get("filters", {})
 
-    for field in ("AIC", "Fornitore", "Principio Attivo", "ATC7", "ATC9", "Stupefacente"):
+    for field in ("AIC", "Fornitore", "Principio Attivo", "ATC7", "ATC9", "Stupefacente", "Stato Validità"):
         if field not in filters or field not in df.columns:
             continue
         target = normalize_text(filters[field])
@@ -479,6 +516,15 @@ def apply_request(catalogue: pd.DataFrame, request: dict) -> pd.DataFrame:
     if "IVA" in filters and "IVA" in df.columns:
         iva = pd.to_numeric(df["IVA"], errors="coerce")
         df = df[(iva - float(filters["IVA"])).abs() < 1e-9]
+
+    validity_days = filters.get("_validity_days")
+    if validity_days and "Giorni Residui" in df.columns:
+        values = pd.to_numeric(df["Giorni Residui"], errors="coerce")
+        if "min" in validity_days:
+            df = df[values >= float(validity_days["min"])]
+            values = pd.to_numeric(df["Giorni Residui"], errors="coerce")
+        if "max" in validity_days:
+            df = df[values <= float(validity_days["max"])]
 
     price = filters.get("_price")
     if price and price.get("field") in df.columns:
