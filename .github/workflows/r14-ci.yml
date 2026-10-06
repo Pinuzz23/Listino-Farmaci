@@ -28,3 +28,7 @@ jobs:
         run: python scripts/test_validity_r14_integration.py
       - name: R14 template test
         run: python scripts/test_template_r14.py
+      - name: R14.1 assistant test
+        run: python scripts/test_assistant_r14_1.py
+      - name: Dashboard integration test
+        run: python scripts/test_dashboard_r7.py
