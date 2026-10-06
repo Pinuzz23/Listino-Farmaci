@@ -20,5 +20,13 @@
   },
   "DUPLICATES": {
     "description": "Duplicati perfettamente identici possono essere proposti per eliminazione, ma l'eliminazione è considerata sensibile e richiede conferma esplicita."
+  },
+  "VALIDITY_LIFECYCLE": {
+    "description": "La vita residua parte dalla prima pubblicazione della Data Validità Farmaco. La stessa data non resetta la finestra; un rinnovo deve usare una data successiva.",
+    "attention": "Dal 50% della vita iniziale lo stato è ATTENZIONE.",
+    "blocking": "Da 2/3 della vita iniziale la stessa validità diventa CRITICO e la ripubblicazione è bloccante; alla data di validità lo stato è SCADUTO."
+  },
+  "VALIDITY_RENEWAL": {
+    "description": "Buyer e Admin possono rinnovare la validità solo con una data futura e successiva a quella corrente, motivazione obbligatoria, storico persistente e delta ERP UPDATE."
   }
 }
