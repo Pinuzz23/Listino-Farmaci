@@ -68,6 +68,38 @@ def _source_records(batch_id: str, db_path=None) -> dict[str, dict[str, Any]]:
         conn.close()
 
 
+def _prior_trace_validity(cur, product_key: str, batch_id: str):
+    """Ultima validità dichiarata in un batch precedente per lo stesso prodotto."""
+
+    ph = _ph()
+    cur.execute(
+        f"""
+        SELECT row_json
+        FROM publication_rows
+        WHERE product_key = {ph}
+          AND publication_row_id < (
+              SELECT MIN(publication_row_id)
+              FROM publication_rows
+              WHERE batch_id = {ph} AND product_key = {ph}
+          )
+        ORDER BY publication_row_id DESC
+        """,
+        (product_key, batch_id, product_key),
+    )
+    for row in cur.fetchall():
+        raw = row[0] if not hasattr(row, "keys") else row["row_json"]
+        try:
+            payload = json.loads(str(raw or "{}"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        previous = parse_date(payload.get(validity.VALIDITY_FIELD))
+        if previous is not None:
+            return previous
+    return None
+
+
 def reconcile_validity_batch(
     batch_id: str,
     db_path: str | Path | None = None,
@@ -145,6 +177,15 @@ def reconcile_validity_batch(
                 continue
 
             product_id = int(product["product_id"])
+
+            # Una ripubblicazione con la stessa validità NON apre una nuova
+            # finestra e NON deve produrre un nuovo evento storico.
+            prior_trace_validity = _prior_trace_validity(
+                cur, product_key, batch_id
+            )
+            if prior_trace_validity == incoming:
+                continue
+
             expected_ids.append(product_id)
             cur.execute(
                 f"""
@@ -159,21 +200,6 @@ def reconcile_validity_batch(
                 existing_before += 1
                 continue
 
-            cur.execute(
-                f"""
-                SELECT new_valid_until
-                FROM product_validity_history
-                WHERE product_id = {ph}
-                  AND reference_at <= {ph}
-                  AND (source_batch_id IS NULL OR source_batch_id <> {ph})
-                ORDER BY reference_at DESC, validity_history_id DESC
-                LIMIT 1
-                """,
-                (product_id, published_at, batch_id),
-            )
-            prior = cur.fetchone()
-            prior_validity = parse_date(prior[0]) if prior else None
-
             current_validity = parse_date(product.get("data_validita_farmaco"))
             current_reference = validity._as_datetime(product.get("validita_riferimento_at"))
             try:
@@ -181,10 +207,12 @@ def reconcile_validity_batch(
             except (TypeError, ValueError):
                 current_initial = None
 
-            old_for_event = prior_validity
-            if old_for_event is None and current_validity is not None and current_validity < incoming:
-                old_for_event = current_validity
-            event_type = "TRACE_RENEWAL" if old_for_event is not None else "FIRST_LOAD"
+            old_for_event = prior_trace_validity
+            event_type = (
+                "TRACE_RENEWAL"
+                if prior_trace_validity is not None
+                else "FIRST_LOAD"
+            )
             initial_days = (incoming - published_at.date()).days
 
             should_update = (
