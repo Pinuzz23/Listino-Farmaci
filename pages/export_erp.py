@@ -129,6 +129,7 @@ with tab_delta:
                         "AIC",
                         "Nome Commerciale",
                         "Fornitore",
+                        "Data Validità Farmaco",
                         "Creato il",
                     ]
                 ],
@@ -308,6 +309,7 @@ with tab_catalogue:
             "Nome Commerciale",
             "Fornitore",
             "Prezzo Confezione",
+            "Data Validità Farmaco",
             "Stato Catalogo",
         ]
         st.dataframe(
