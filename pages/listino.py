@@ -323,6 +323,7 @@ show_cols = [
     "Prezzo Confezione",
     "UPC",
     "Gruppo di Stivaggio",
+    "Data Validità Farmaco",
     "Ultimo aggiornamento",
 ]
 
@@ -376,6 +377,14 @@ if selected_rows:
         )
         st.write(f"**ATC7:** {_clean_text(row.get('ATC7')) or '-'}")
         st.write(f"**ATC9:** {_clean_text(row.get('ATC9')) or '-'}")
+        validity_value = row.get("Data Validità Farmaco")
+        validity_text = "-"
+        if validity_value is not None and str(validity_value).strip() not in {"", "NaT", "nan"}:
+            try:
+                validity_text = pd.to_datetime(validity_value).strftime("%d/%m/%Y")
+            except Exception:
+                validity_text = str(validity_value)
+        st.write(f"**Data Validità Farmaco:** {validity_text}")
 
     with b:
         st.markdown("#### Commerciale")
