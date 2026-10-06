@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from modules.excel_reader import WorkbookData
-from modules.validator import normalize_identifier, normalize_text, parse_decimal, parse_percentage
+from modules.validator import normalize_identifier, normalize_text, parse_date, parse_decimal, parse_percentage
 
 
 def _display(value: Any) -> str:
@@ -73,6 +73,8 @@ def _reason(kind: str, original: Any, normalized: Any) -> str:
         return "Aliquota IVA ricondotta alla rappresentazione numerica canonica."
     if kind in {"number", "integer"}:
         return "Valore numerico ricondotto a una rappresentazione standard."
+    if kind == "date":
+        return "Data ricondotta al formato ISO YYYY-MM-DD."
     if kind == "identifier":
         return "Identificativo ripulito da spazi o formattazioni Excel non significative."
     return "Testo ripulito da spazi iniziali/finali o spaziature anomale."
@@ -109,6 +111,9 @@ def normalize_workbook(workbook_data: WorkbookData, schema: dict):
                 normalized = None
             elif kind == "string":
                 normalized = _clean_string(original)
+            elif kind == "date":
+                parsed_date = parse_date(original)
+                normalized = parsed_date.isoformat() if parsed_date is not None else _clean_string(original)
             elif kind == "identifier":
                 normalized = normalize_identifier(original)
                 if isinstance(normalized, str):
