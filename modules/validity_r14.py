@@ -742,6 +742,67 @@ def catalogue_dataframe(
     return df.merge(validity, how="left", on="product_id")
 
 
+def catalogue_with_validity_metrics(
+    db_path: str | Path | None = None,
+    *,
+    today: date | None = None,
+) -> pd.DataFrame:
+    """Catalogo corrente arricchito con metriche R14, senza alterare l'export ERP."""
+
+    df = catalogue_dataframe(db_path)
+    derived_columns = [
+        "Stato Validità",
+        "Giorni Residui",
+        "Vita Consumata %",
+        "Soglia Critica",
+    ]
+    if df.empty:
+        for column in derived_columns:
+            if column not in df.columns:
+                df[column] = pd.Series(dtype="object")
+        return df
+
+    ensure_validity_schema(db_path)
+    conn = order_management._connect(db_path)
+    try:
+        metadata = pd.read_sql_query(
+            """
+            SELECT product_id,
+                   validita_riferimento_at AS __validity_reference,
+                   validita_iniziale_giorni AS __validity_initial
+            FROM products
+            """,
+            conn,
+        )
+    finally:
+        conn.close()
+
+    out = df.merge(metadata, how="left", on="product_id")
+    current_day = today or date.today()
+    statuses = []
+    remaining = []
+    consumed = []
+    thresholds = []
+    for _, row in out.iterrows():
+        metrics = validity_metrics(
+            row.get(VALIDITY_FIELD),
+            row.get("__validity_reference"),
+            row.get("__validity_initial"),
+            today=current_day,
+        )
+        statuses.append(metrics.get("status"))
+        remaining.append(metrics.get("remaining_days"))
+        consumed.append(metrics.get("consumed_percent"))
+        threshold = metrics.get("threshold_date")
+        thresholds.append(threshold.isoformat() if threshold else None)
+
+    out["Stato Validità"] = statuses
+    out["Giorni Residui"] = remaining
+    out["Vita Consumata %"] = consumed
+    out["Soglia Critica"] = thresholds
+    return out.drop(columns=["__validity_reference", "__validity_initial"], errors="ignore")
+
+
 def validity_monitor_dataframe(
     db_path: str | Path | None = None,
 ) -> pd.DataFrame:
