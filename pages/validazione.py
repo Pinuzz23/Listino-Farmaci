@@ -53,7 +53,7 @@ status = get_aifa_status(aifa_dir)
 
 hero(
     "Validatore Listino Farmaci",
-    "Wave 2 Demo R9 · Validation Copilot WRITE controllati, Tool Registry 2.0, AIFA e pubblicazione locale",
+    "R14 · Master 23 campi, controlli AIFA, validità commerciale e pubblicazione a listino",
 )
 
 
@@ -180,6 +180,12 @@ def _build_editor_config(schema: dict):
                 help=help_text,
                 width="small",
             )
+        elif kind == "date":
+            config[name] = st.column_config.TextColumn(
+                name,
+                help=f"{help_text}. Formato consigliato: GG/MM/AAAA.",
+                width="medium",
+            )
         elif kind == "identifier":
             config[name] = st.column_config.TextColumn(
                 name,
@@ -197,12 +203,12 @@ def _build_editor_config(schema: dict):
 # --------------------------- SIDEBAR ---------------------------
 with st.sidebar:
     st.subheader("Caricamento")
-    template_path = Path(schema.get("template_reference", {}).get("bundled_name", "templates/Template_Tracciato_Master_R3.xlsx"))
+    template_path = Path(schema.get("template_reference", {}).get("bundled_name", "templates/Template_Tracciato_Master_R14.xlsx"))
     if template_path.exists():
         st.download_button(
             "⬇️ Scarica template master",
             data=template_path.read_bytes(),
-            file_name="Template_Tracciato_Master_R3.xlsx",
+            file_name="Template_Tracciato_Master_R14.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
             help="Template ufficiale: riga 1 linee guida, riga 2 intestazioni, dati dalla riga 3.",
@@ -255,7 +261,7 @@ with st.sidebar:
 
     with st.expander("Regole del tracciato"):
         st.caption(
-            "18 campi operativi attesi · controlli obbligatorietà · prezzi · AIC/Codice Fornitore · "
+            "23 campi operativi attesi · Data Validità Farmaco in ultima colonna · controlli obbligatorietà · prezzi · AIC/Codice Fornitore · "
             "arricchimento AIFA · confronto UPC · correzione assistita con audit."
         )
 
@@ -1030,7 +1036,7 @@ with tab_data:
         if not final_preview.empty:
             final_preview.insert(0, "Riga Excel", enriched_data.source_rows)
         st.dataframe(final_preview, hide_index=True, use_container_width=True)
-        st.caption("Questa vista rappresenta il dataset finale dopo normalizzazione e arricchimento AIFA. L’export validato mantiene tutte le 18 colonne del master, incluso Principio Attivo.")
+        st.caption("Questa vista rappresenta il dataset finale dopo normalizzazione e arricchimento AIFA. L’export validato mantiene tutte le 23 colonne del master, con Data Validità Farmaco come ultimo campo.")
 
     with t3:
         if result.get("transformations"):
