@@ -39,6 +39,22 @@ class ValidityError(RuntimeError):
     pass
 
 
+class ValidityPersistenceError(ValidityError):
+    """Errore avvenuto dopo il commit della pubblicazione core.
+
+    Conserva il risultato della pubblicazione per consentire al guard R14.1
+    di ricostruire in modo idempotente la sola persistenza della validità.
+    """
+
+    def __init__(self, result: dict[str, Any], cause: Exception):
+        self.result = dict(result)
+        self.cause = cause
+        super().__init__(
+            f"Pubblicazione {result.get('batch_id') or '-'} confermata, "
+            f"ma persistenza validità non completata: {cause}"
+        )
+
+
 def _schema_key(db_path: str | Path | None = None) -> str:
     if use_postgres():
         return "postgres"
@@ -106,6 +122,13 @@ def ensure_validity_schema(db_path: str | Path | None = None) -> None:
                     ON products(data_validita_farmaco)
                     """
                 )
+                cur.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_product_validity_history_source
+                    ON product_validity_history(product_id, source_batch_id)
+                    WHERE source_batch_id IS NOT NULL
+                    """
+                )
             else:
                 columns = {
                     row[1]
@@ -142,6 +165,9 @@ def ensure_validity_schema(db_path: str | Path | None = None) -> None:
                         ON product_validity_history(product_id, created_at DESC);
                     CREATE INDEX IF NOT EXISTS idx_products_validity
                         ON products(data_validita_farmaco);
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_product_validity_history_source
+                        ON product_validity_history(product_id, source_batch_id)
+                        WHERE source_batch_id IS NOT NULL;
                     """
                 )
             conn.commit()
@@ -677,7 +703,13 @@ def publish_core_with_validity(
         app_version=app_version,
         archive_path=archive_path,
     )
-    _persist_publication_validity(records, result, db_path)
+    try:
+        _persist_publication_validity(records, result, db_path)
+    except Exception as exc:
+        # Il core R13/R10 può essere già stato committato. Non perdiamo il
+        # riferimento al batch: il guard R14.1 potrà riconciliare solo la
+        # validità, senza mascherare errori avvenuti prima di questo punto.
+        raise ValidityPersistenceError(result, exc) from exc
     return result
 
 

@@ -19,6 +19,9 @@ if use_postgres():
 
 # R14: validità commerciale AIC, monitoraggio e rinnovo Buyer.
 import modules.validity_r14  # noqa: F401
+# R14.1: verifica/ripara in modo idempotente la persistenza validità
+# quando il core di pubblicazione è già stato confermato.
+import modules.validity_reconciliation_guard  # noqa: F401
 
 from modules.catalogue_visibility import init_db as init_catalogue_visibility_db
 from modules.order_management import init_db as init_order_management_db
