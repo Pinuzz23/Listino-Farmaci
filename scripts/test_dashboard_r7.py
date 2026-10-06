@@ -23,18 +23,22 @@ records = [
     {
         "Fornitore": "ALFA S.P.A.", "AIC": "000000001", "Codice Fornitore": "A1",
         "Nome Commerciale": "PRODOTTO A", "Principio Attivo": "ATTIVO A",
+        "Forma Farmaceutica": "Compressa",
         "Materiale Pericoloso": "N", "Stupefacente": "No", "ATC7": "A01AA01", "ATC9": "",
         "Fala / Lasa": "N", "Gruppo di Stivaggio": "STD_Standard",
         "Temperatura di Stivaggio": "da + 15 a 25°C", "Prezzo Unitario": 1.0,
-        "Prezzo Confezione": 10.0, "UPC": 10, "Minimo Movimentabile": 1, "IVA": 0.1, "Note": ""
+        "Prezzo Confezione": 10.0, "UPC": 10, "Minimo Movimentabile": 1, "IVA": 0.1, "Note": "",
+        "X": 10, "Y": 5, "Z": 3, "Data Validità Farmaco": "2027-12-31"
     },
     {
         "Fornitore": "BETA S.P.A.", "AIC": "000000002", "Codice Fornitore": "B1",
         "Nome Commerciale": "PRODOTTO B", "Principio Attivo": "ATTIVO B",
+        "Forma Farmaceutica": "Flacone",
         "Materiale Pericoloso": "N", "Stupefacente": "No", "ATC7": "B01BB01", "ATC9": "",
         "Fala / Lasa": "N", "Gruppo di Stivaggio": "FRIGO_Frigo",
         "Temperatura di Stivaggio": "da + 2 a 8°C", "Prezzo Unitario": 3.0,
-        "Prezzo Confezione": 30.0, "UPC": 10, "Minimo Movimentabile": 2, "IVA": 0.22, "Note": ""
+        "Prezzo Confezione": 30.0, "UPC": 10, "Minimo Movimentabile": 2, "IVA": 0.22, "Note": "",
+        "X": 12, "Y": 6, "Z": 4, "Data Validità Farmaco": "2027-11-30"
     },
 ]
 
@@ -63,7 +67,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert get_dashboard(db, dash_id)["name"] == "Analisi Test"
     assert len(widgets) == 2
     assert round(metric, 2) == 2.25, metric
+    assert "Stato Validità" in df.columns
+    assert "Giorni Residui" in df.columns
     assert set(bar["Fornitore"]) == {"ALFA S.P.A.", "BETA S.P.A."}
     assert top.iloc[0]["Nome Commerciale"] == "PRODOTTO B"
     assert len(trend) >= 1
-    print("OK - Dashboard R7: persistenza, KPI, barre, Top N e trend prezzi funzionano.")
+    print("OK - Dashboard R14.1: storage, KPI, validità, Top N e trend funzionano.")
